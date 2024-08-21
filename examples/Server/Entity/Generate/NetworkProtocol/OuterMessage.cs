@@ -73,6 +73,42 @@ namespace Fantasy
 		public uint ErrorCode { get; set; }
 	}
 	[MessagePackObject]
+	public partial class C2G_TestNotifyMessage : AMessage, IMessage
+	{
+		public static C2G_TestNotifyMessage Create(Scene scene)
+		{
+			return scene.MessagePoolComponent.Rent<C2G_TestNotifyMessage>();
+		}
+		public override void Dispose()
+		{
+			Msg = default;
+#if FANTASY_NET || FANTASY_UNITY
+			Scene.MessagePoolComponent.Return<C2G_TestNotifyMessage>(this);
+#endif
+		}
+		public uint OpCode() { return OuterOpcode.C2G_TestNotifyMessage; }
+		[Key(0)]
+		public string Msg { get; set; }
+	}
+	[MessagePackObject]
+	public partial class G2C_TestNotifyMessage : AMessage, IMessage
+	{
+		public static G2C_TestNotifyMessage Create(Scene scene)
+		{
+			return scene.MessagePoolComponent.Rent<G2C_TestNotifyMessage>();
+		}
+		public override void Dispose()
+		{
+			Msg = default;
+#if FANTASY_NET || FANTASY_UNITY
+			Scene.MessagePoolComponent.Return<G2C_TestNotifyMessage>(this);
+#endif
+		}
+		public uint OpCode() { return OuterOpcode.G2C_TestNotifyMessage; }
+		[Key(0)]
+		public string Msg { get; set; }
+	}
+	[MessagePackObject]
 	public partial class C2G_CreateAddressableRequest : AMessage, IRequest
 	{
 		public static C2G_CreateAddressableRequest Create(Scene scene)
@@ -167,5 +203,43 @@ namespace Fantasy
 		public string Tag { get; set; }
 		[Key(1)]
 		public uint ErrorCode { get; set; }
+	}
+	[MessagePackObject]
+	public partial class C2M_TestNotifyAddressableMessage : AMessage, IAddressableRouteMessage
+	{
+		public static C2M_TestNotifyAddressableMessage Create(Scene scene)
+		{
+			return scene.MessagePoolComponent.Rent<C2M_TestNotifyAddressableMessage>();
+		}
+		public override void Dispose()
+		{
+			Msg = default;
+#if FANTASY_NET || FANTASY_UNITY
+			Scene.MessagePoolComponent.Return<C2M_TestNotifyAddressableMessage>(this);
+#endif
+		}
+		public uint OpCode() { return OuterOpcode.C2M_TestNotifyAddressableMessage; }
+		public long RouteTypeOpCode() { return InnerRouteType.Addressable; }
+		[Key(0)]
+		public string Msg { get; set; }
+	}
+	[MessagePackObject]
+	public partial class M2C_TestNotifyAddressableMessage : AMessage, IAddressableRouteMessage
+	{
+		public static M2C_TestNotifyAddressableMessage Create(Scene scene)
+		{
+			return scene.MessagePoolComponent.Rent<M2C_TestNotifyAddressableMessage>();
+		}
+		public override void Dispose()
+		{
+			Msg = default;
+#if FANTASY_NET || FANTASY_UNITY
+			Scene.MessagePoolComponent.Return<M2C_TestNotifyAddressableMessage>(this);
+#endif
+		}
+		public uint OpCode() { return OuterOpcode.M2C_TestNotifyAddressableMessage; }
+		public long RouteTypeOpCode() { return InnerRouteType.Addressable; }
+		[Key(0)]
+		public string Msg { get; set; }
 	}
 }

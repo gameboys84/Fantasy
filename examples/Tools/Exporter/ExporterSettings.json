@@ -9,7 +9,7 @@
             "Comment": "ProtoBuf生成到服务端的文件夹位置"
         },
         "NetworkProtocolClientDirectory": {
-            "Value": "../../Client/Unity/Assets/Scripts/Hotfix/Generate/NetworkProtocol/",
+            "Value": "../../Client/FantasyClient/Assets/Scripts/Hotfix/Generate/Protocol/",
             "Comment": "ProtoBuf生成到客户端的文件夹位置"
         },
         "ExcelProgramPath": {
@@ -25,7 +25,7 @@
             "Comment": "Excel生成的代码文件、在服务端文件夹位置"
         },
         "ExcelClientFileDirectory": {
-            "Value": "../../Client/Unity/Assets/Scripts/Hotfix/Generate/ConfigTable/Entity/",
+            "Value": "../../Client/FantasyClient/Assets/Scripts/Hotfix/Generate/Config/",
             "Comment": "Excel生成的代码文件、在客户端文件夹位置"
         },
         "ExcelServerBinaryDirectory": {
@@ -33,7 +33,7 @@
             "Comment": "Excel生成服务器二进制数据文件夹位置"
         },
         "ExcelClientBinaryDirectory": {
-            "Value": "../../Client/Unity/Assets/Bundles/Config/",
+            "Value": "../../Client/FantasyClient/Assets/AssetRaw/Config/",
             "Comment": "Excel生成在客户端的二进制数据文件夹位置"
         },
         "ExcelServerJsonDirectory": {
@@ -44,16 +44,12 @@
             "Value": "../../Config/Json/Client/",
             "Comment": "Excel生成在客户端的Json数据文件夹位置"
         },
-        "ExcelTemplatePath": {
-            "Value": "../../Config/Template/ExcelTemplate.txt",
-            "Comment": "Excel生成代码模版的文件位置"
-        },
         "ServerCustomExportDirectory": {
             "Value": "../../Server/Entity/Generate/CustomExport/",
             "Comment": "Excel在服务端生成自定义代码的文件夹位置"
         },
         "ClientCustomExportDirectory": {
-            "Value": "../../Client/Unity/Assets/Scripts/Hotfix/Generate/CustomExport",
+            "Value": "../../Client/FantasyClient/Assets/Scripts/Hotfix/Generate/CustomExport",
             "Comment": "Excel在客户端端生成自定义代码的文件夹位置"
         }
     }

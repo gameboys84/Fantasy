@@ -104,7 +104,9 @@ namespace Fantasy
                             break;
                         }
                         
-                        var newTimerId = GetId;
+                        // 为什么要新建一个id呢，会导致外部缓存的id失效，外部就没办法主动停止了
+                        // var newTimerId = GetId;
+                        var newTimerId = timerId;
                         timerAction.StartTime = Now();
                         AddTimer(newTimerId, ref timerAction);
                         action();

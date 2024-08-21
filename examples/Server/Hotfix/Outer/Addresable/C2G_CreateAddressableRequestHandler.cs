@@ -18,5 +18,6 @@ public sealed class C2G_CreateAddressableRequestHandler : MessageRPC<C2G_CreateA
         var addressableRouteComponent = session.AddComponent<AddressableRouteComponent>();
         // 4、拿到MapScene返回的AddressableId赋值给addressableRouteComponent.AddressableId。
         addressableRouteComponent.AddressableId = responseAddressableId.AddressableId;
+
     }
 }

@@ -12,6 +12,15 @@ message G2C_TestResponse // IResponse
 {
 	string Tag = 1;
 }
+message C2G_TestNotifyMessage // IMessage
+{
+	string Msg = 1;
+}
+message G2C_TestNotifyMessage // IMessage
+{
+	string Msg = 1;
+}
+
 message C2G_CreateAddressableRequest // IRequest,G2C_CreateAddressableResponse
 {
 
@@ -31,4 +40,12 @@ message C2M_TestRequest // IAddressableRouteRequest,M2C_TestResponse
 message M2C_TestResponse // IAddressableRouteResponse
 {
 	string Tag = 1;
+}
+message C2M_TestNotifyAddressableMessage // IAddressableRouteMessage
+{
+	string Msg = 1;
+}
+message M2C_TestNotifyAddressableMessage // IAddressableRouteMessage
+{
+	string Msg = 1;
 }
