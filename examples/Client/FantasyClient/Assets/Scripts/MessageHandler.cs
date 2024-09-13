@@ -1,4 +1,7 @@
 ﻿using Fantasy;
+using Fantasy.Async;
+using Fantasy.Network;
+using Fantasy.Network.Interface;
 using GameLogic;
 
 public class G2C_TestNotifyMessage_Handler : Message<G2C_TestNotifyMessage>

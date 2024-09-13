@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using Fantasy;
 using Fantasy.Exporter;
+using Fantasy.Helper;
 using OfficeOpenXml;
 #pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
 
@@ -114,6 +115,11 @@ public abstract class ACustomExport : ICustomExport
         {
             case CustomExportType.Client:
             {
+                if (string.IsNullOrEmpty(ExcelExporter.ClientCustomExportDirectory))
+                {
+                    return;
+                }
+                
                 if (!Directory.Exists(ExcelExporter.ClientCustomExportDirectory))
                 {
                     Directory.CreateDirectory(ExcelExporter.ClientCustomExportDirectory);
@@ -125,6 +131,11 @@ public abstract class ACustomExport : ICustomExport
             }
             case CustomExportType.Server:
             {
+                if (string.IsNullOrEmpty(ExcelExporter.ServerCustomExportDirectory))
+                {
+                    return;
+                }
+                
                 if (!Directory.Exists(ExcelExporter.ServerCustomExportDirectory))
                 {
                     Directory.CreateDirectory(ExcelExporter.ServerCustomExportDirectory);

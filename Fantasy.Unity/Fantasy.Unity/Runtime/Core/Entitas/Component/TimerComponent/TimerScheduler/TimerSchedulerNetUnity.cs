@@ -1,8 +1,11 @@
 #if FANTASY_UNITY
 using System;
 using System.Collections.Generic;
+using Fantasy.Async;
+using Fantasy.DataStructure.Collection;
+using Fantasy.Helper;
 using UnityEngine;
-namespace Fantasy
+namespace Fantasy.Timer
 {
     public sealed class TimerSchedulerNetUnity
     {
@@ -104,11 +107,8 @@ namespace Fantasy
                             break;
                         }
                         
-                        // 为什么要新建一个id呢，会导致外部缓存的id失效，外部就没办法主动停止了
-                        // var newTimerId = GetId;
-                        var newTimerId = timerId;
                         timerAction.StartTime = Now();
-                        AddTimer(newTimerId, ref timerAction);
+                        AddTimer(ref timerAction);
                         action();
                         break;
                     }
@@ -116,11 +116,11 @@ namespace Fantasy
             }
         }
         
-        private void AddTimer(long timerId, ref TimerAction timer)
+        private void AddTimer(ref TimerAction timer)
         {
             var tillTime = timer.StartTime + timer.TriggerTime;
-            _timeId.Add(tillTime, timerId);
-            _timerActions.Add(timerId, timer);
+            _timeId.Add(tillTime, timer.TimerId);
+            _timerActions.Add(timer.TimerId, timer);
 
             if (tillTime < _minTime)
             {
@@ -144,8 +144,8 @@ namespace Fantasy
             var now = Now();
             var timerId = GetId;
             var tcs = FTask.Create();
-            var timerAction = new TimerAction(TimerType.OnceWaitTimer, now, time, tcs);
-            AddTimer(timerId, ref timerAction);
+            var timerAction = new TimerAction(timerId, TimerType.OnceWaitTimer, now, time, tcs);
+            AddTimer(ref timerAction);
             // 定义取消操作的方法
             void CancelActionVoid()
             {
@@ -181,10 +181,10 @@ namespace Fantasy
                 return;
             }
 
-            var timerId = ++_idGenerator;
+            var timerId = GetId;
             var tcs = FTask.Create();
-            var timerAction = new TimerAction(TimerType.OnceWaitTimer, now, tillTime - now, tcs);
-            AddTimer(tillTime, ref timerAction);
+            var timerAction = new TimerAction(timerId, TimerType.OnceWaitTimer, now, tillTime - now, tcs);
+            AddTimer(ref timerAction);
             
             // 定义取消操作的方法
             void CancelActionVoid()
@@ -230,8 +230,8 @@ namespace Fantasy
             var now = Now();
             
             var timerId = GetId;
-            var timerAction = new TimerAction(TimerType.OnceTimer, now, time, action);
-            AddTimer(timerId, ref timerAction);
+            var timerAction = new TimerAction(timerId, TimerType.OnceTimer, now, time, action);
+            AddTimer(ref timerAction);
             return timerId;
         }
         
@@ -251,8 +251,8 @@ namespace Fantasy
             }
 
             var timerId = GetId;
-            var timerAction = new TimerAction(TimerType.OnceTimer, now, tillTime - now, action);
-            AddTimer(timerId, ref timerAction);
+            var timerAction = new TimerAction(timerId, TimerType.OnceTimer, now, tillTime - now, action);
+            AddTimer(ref timerAction);
             return timerId;
         }
         
@@ -342,8 +342,8 @@ namespace Fantasy
         {
             var now = Now();
             var timerId = GetId;
-            var timerAction = new TimerAction(TimerType.RepeatedTimer, now, time, action);
-            AddTimer(timerId, ref timerAction);
+            var timerAction = new TimerAction(timerId, TimerType.RepeatedTimer, now, time, action);
+            AddTimer(ref timerAction);
             return timerId;
         }
         

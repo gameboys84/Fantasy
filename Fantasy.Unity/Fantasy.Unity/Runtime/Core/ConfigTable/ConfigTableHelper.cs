@@ -2,9 +2,12 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using Fantasy.Platform.Net;
+using Fantasy.Serialize;
+
 // ReSharper disable SuspiciousTypeConversion.Global
 
-namespace Fantasy
+namespace Fantasy.ConfigTable
 {
     /// <summary>
     /// 配置表帮助类
@@ -31,10 +34,10 @@ namespace Fantasy
                     {
                         return (T)aProto;
                     }
-
+                   
                     var configFile = GetConfigPath(dataConfig);
                     var bytes = File.ReadAllBytes(configFile);
-                    var data = MessagePackHelper.Deserialize<T>(bytes, 0, bytes.Length);
+                    var data = SerializerManager.GetSerializer(FantasySerializerType.ProtoBuf).Deserialize<T>(bytes);
                     ConfigDic[dataConfig] = data;
                     return data;
                 }

@@ -5,12 +5,19 @@ using System.IO;
 using System.IO.Pipelines;
 using System.Net.Sockets;
 using System.Threading;
+using Fantasy.Async;
+using Fantasy.Helper;
+using Fantasy.Network.Interface;
+using Fantasy.PacketParser;
+using Fantasy.Serialize;
+#pragma warning disable CS1591 // Missing XML comment for publicly visible type or member
+
 #pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
 #pragma warning disable CS8604 // Possible null reference argument.
 #pragma warning disable CS8600 // Converting null literal or possible null value to non-nullable type.
 #pragma warning disable CS8622 // Nullability of reference types in type of parameter doesn't match the target delegate (possibly because of nullability attributes).
 
-namespace Fantasy
+namespace Fantasy.Network.TCP
 {
     public sealed class TCPClientNetwork : AClientNetwork
     {
@@ -272,16 +279,16 @@ namespace Fantasy
 
         #region Send
 
-        public override void Send(uint rpcId, long routeTypeOpCode, long routeId, MemoryStreamBuffer memoryStream, object message)
+        public override void Send(uint rpcId, long routeId, MemoryStreamBuffer memoryStream, IMessage message)
         {
-            Send(_packetParser.Pack(ref rpcId, ref routeTypeOpCode, ref routeId, memoryStream, message)).Coroutine();
+            Send(_packetParser.Pack(ref rpcId, ref routeId, memoryStream, message)).Coroutine();
         }
 
         private async FTask Send(MemoryStreamBuffer memoryStream)
         {
             try
             {
-                await _socket.SendAsync(new ArraySegment<byte>(memoryStream.GetBuffer(), 0, (int)memoryStream.Length), SocketFlags.None);
+                await _socket.SendAsync(new ArraySegment<byte>(memoryStream.GetBuffer(), 0, (int)memoryStream.Position), SocketFlags.None);
 
             }
             catch (SocketException)

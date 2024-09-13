@@ -1,12 +1,14 @@
 #if FANTASY_NET
-using MessagePack;
+using Fantasy.DataStructure.Collection;
+using Fantasy.IdFactory;
+using ProtoBuf;
 #pragma warning disable CS8603 // Possible null reference return.
 #pragma warning disable CS1591 // Missing XML comment for publicly visible type or member
-namespace Fantasy;
+namespace Fantasy.Platform.Net;
 
 public sealed partial class SceneConfig
 {
-    [IgnoreMember]
+    [ProtoIgnore]
     public long RouteId { get; private set; }
     public override void EndInit()
     {
@@ -17,9 +19,9 @@ public sealed partial class SceneConfig
 
 public sealed partial class SceneConfigData
 {
-    [IgnoreMember]
+    [ProtoIgnore]
     private readonly OneToManyList<int, SceneConfig> _sceneConfigBySceneType = new OneToManyList<int, SceneConfig>();
-    [IgnoreMember]
+    [ProtoIgnore]
     private readonly OneToManyList<uint, SceneConfig> _sceneConfigByProcess = new OneToManyList<uint, SceneConfig>();
     
     public override void EndInit()

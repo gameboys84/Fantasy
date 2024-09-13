@@ -1,10 +1,17 @@
 using System;
 using System.Collections.Generic;
+using Fantasy.Async;
+using Fantasy.DataStructure.Collection;
+using Fantasy.Helper;
+
 #pragma warning disable CS8602 // Dereference of a possibly null reference.
 #pragma warning disable CS8625 // Cannot convert null literal to non-nullable reference type.
 
-namespace Fantasy
+namespace Fantasy.Timer
 {
+    /// <summary>
+    /// 基于系统事件的任务调度系统
+    /// </summary>
     public sealed class TimerSchedulerNet
     {
         private readonly Scene _scene;
@@ -15,6 +22,10 @@ namespace Fantasy
         private readonly Dictionary<long, TimerAction> _timerActions = new Dictionary<long, TimerAction>();
         private readonly SortedOneToManyList<long, long> _timeId = new(); // 时间与计时器ID的有序一对多列表
         private long GetId => ++_idGenerator;
+        /// <summary>
+        /// 构造函数
+        /// </summary>
+        /// <param name="scene">当前的Scene</param>
         public TimerSchedulerNet(Scene scene)
         {
             _scene = scene;
@@ -25,6 +36,9 @@ namespace Fantasy
             return TimeHelper.Now;
         }
         
+        /// <summary>
+        /// 驱动方法，只有调用这个方法任务系统才会正常运转。
+        /// </summary>
         public void Update()
         {
             if (_timeId.Count == 0)
@@ -105,9 +119,8 @@ namespace Fantasy
                             break;
                         }
                         
-                        var newTimerId = GetId;
                         timerAction.StartTime = Now();
-                        AddTimer(newTimerId, ref timerAction);
+                        AddTimer(ref timerAction);
                         action();
                         break;
                     }
@@ -115,11 +128,11 @@ namespace Fantasy
             }
         }
         
-        private void AddTimer(long timerId, ref TimerAction timer)
+        private void AddTimer(ref TimerAction timer)
         {
             var tillTime = timer.StartTime + timer.TriggerTime;
-            _timeId.Add(tillTime, timerId);
-            _timerActions.Add(timerId, timer);
+            _timeId.Add(tillTime, timer.TimerId);
+            _timerActions.Add(timer.TimerId, timer);
 
             if (tillTime < _minTime)
             {
@@ -142,8 +155,8 @@ namespace Fantasy
             var now = Now();
             var timerId = GetId;
             var tcs = FTask.Create();
-            var timerAction = new TimerAction(TimerType.OnceWaitTimer, now, time, tcs);
-            AddTimer(timerId, ref timerAction);
+            var timerAction = new TimerAction(timerId, TimerType.OnceWaitTimer, now, time, tcs);
+            AddTimer(ref timerAction);
             
             void CancelActionVoid()
             {
@@ -180,10 +193,10 @@ namespace Fantasy
                 return;
             }
 
-            var timerId = ++_idGenerator;
+            var timerId = GetId;
             var tcs = FTask.Create();
-            var timerAction = new TimerAction(TimerType.OnceWaitTimer, now, tillTime - now, tcs);
-            AddTimer(tillTime, ref timerAction);
+            var timerAction = new TimerAction(timerId, TimerType.OnceWaitTimer, now, tillTime - now, tcs);
+            AddTimer(ref timerAction);
             
             // 定义取消操作的方法
             void CancelActionVoid()
@@ -229,10 +242,9 @@ namespace Fantasy
         public long OnceTimer(long time, Action action)
         {
             var now = Now();
-            
             var timerId = GetId;
-            var timerAction = new TimerAction(TimerType.OnceTimer, now, time, action);
-            AddTimer(timerId, ref timerAction);
+            var timerAction = new TimerAction(timerId,TimerType.OnceTimer, now, time, action);
+            AddTimer(ref timerAction);
             return timerId;
         }
         
@@ -252,8 +264,8 @@ namespace Fantasy
             }
 
             var timerId = GetId;
-            var timerAction = new TimerAction(TimerType.OnceTimer, now, tillTime - now, action);
-            AddTimer(timerId, ref timerAction);
+            var timerAction = new TimerAction(timerId, TimerType.OnceTimer, now, tillTime - now, action);
+            AddTimer(ref timerAction);
             return timerId;
         }
         
@@ -343,8 +355,8 @@ namespace Fantasy
         {
             var now = Now();
             var timerId = GetId;
-            var timerAction = new TimerAction(TimerType.RepeatedTimer, now, time, action);
-            AddTimer(timerId, ref timerAction);
+            var timerAction = new TimerAction(timerId, TimerType.RepeatedTimer, now, time, action);
+            AddTimer(ref timerAction);
             return timerId;
         }
         

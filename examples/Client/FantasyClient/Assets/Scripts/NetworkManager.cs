@@ -1,15 +1,18 @@
 using Fantasy;
+using Fantasy.Async;
+using Fantasy.Network;
+using Fantasy.Platform.Unity;
 using GameLogic;
 using UnityEngine;
 
 public class NetworkManager : MonoBehaviour
 {
     public static NetworkManager Instance => _instance;
-    public Fantasy.Session Session => _session;
+    public Session Session => _session;
     
     private static NetworkManager _instance;
     private Fantasy.Scene _scene;
-    private Fantasy.Session _session;
+    private Session _session;
     private bool _inited;
     
     private bool _addressRegisted = false;
@@ -27,7 +30,7 @@ public class NetworkManager : MonoBehaviour
             return;
         
         _inited = true;
-        _scene = await Fantasy.Entry.Initialize(GetType().Assembly);
+        _scene = await Entry.Initialize(GetType().Assembly);
     }
 
     // 127.0.0.1:20000, 5000

@@ -1,7 +1,15 @@
 // ReSharper disable MemberCanBePrivate.Global
+
+using Fantasy.Async;
+using Fantasy.Entitas;
+using Fantasy.Entitas.Interface;
+using Fantasy.Helper;
+using Fantasy.InnerMessage;
+using Fantasy.Timer;
+
 #if FANTASY_UNITY
 
-namespace Fantasy
+namespace Fantasy.Network
 {
     public class SessionHeartbeatComponentAwakeSystem : AwakeSystem<SessionHeartbeatComponent>
     {
@@ -21,8 +29,9 @@ namespace Fantasy
         public long LastTime;
         public long SelfRunTimeId;
         public long TimeOutTimerId;
-        public Session Session;
+        public long SessionRunTimeId;
         public TimerComponent TimerComponent; 
+        public EntityReference<Session> Session;
         private readonly PingRequest _pingRequest = new PingRequest(); 
         
         public int Ping { get; private set; }
@@ -49,6 +58,13 @@ namespace Fantasy
             Session = (Session)Parent;
             SelfRunTimeId = RunTimeId;
             LastTime = TimeHelper.Now;
+
+            if (TimerComponent == null)
+            {
+                Log.Error("请在Unity的菜单执行Fantasy->Generate link.xml再重新打包");
+                return;
+            }
+            
             TimerId = TimerComponent.Unity.RepeatedTimer(interval, () => RepeatedSend().Coroutine());
             TimeOutTimerId = TimerComponent.Unity.RepeatedTimer(timeOutInterval, CheckTimeOut);
         }
@@ -60,12 +76,14 @@ namespace Fantasy
                 return;
             }
 
-            if (SelfRunTimeId != Session.RunTimeId)
+            Session entityReference = Session;
+
+            if (entityReference == null)
             {
                 return;
             }
-            
-            Session.Dispose();
+
+            entityReference.Dispose();
         }
 
         /// <summary>
@@ -93,11 +111,20 @@ namespace Fantasy
             if (SelfRunTimeId != RunTimeId)
             {
                 Stop();
+                return;
+            }
+            
+            Session session = Session;
+
+            if (session == null)
+            {
+                Dispose();
+                return;
             }
             
             var requestTime = TimeHelper.Now;
             
-            var pingResponse = (PingResponse)await Session.Call(_pingRequest);
+            var pingResponse = (PingResponse)await session.Call(_pingRequest);
 
             if (pingResponse.ErrorCode != 0)
             {

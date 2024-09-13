@@ -1,6 +1,10 @@
-using MessagePack;
+using ProtoBuf;
+
 using System.Collections.Generic;
+using MongoDB.Bson.Serialization.Attributes;
 using Fantasy;
+using Fantasy.Network.Interface;
+using Fantasy.Serialize;
 // ReSharper disable InconsistentNaming
 // ReSharper disable RedundantUsingDirective
 // ReSharper disable RedundantOverriddenMember
@@ -13,8 +17,8 @@ using Fantasy;
 
 namespace Fantasy
 {	
-	[MessagePackObject]
-	public partial class C2G_TestMessage : AMessage, IMessage
+	[ProtoContract]
+	public partial class C2G_TestMessage : AMessage, IMessage, IProto
 	{
 		public static C2G_TestMessage Create(Scene scene)
 		{
@@ -24,15 +28,15 @@ namespace Fantasy
 		{
 			Tag = default;
 #if FANTASY_NET || FANTASY_UNITY
-			Scene.MessagePoolComponent.Return<C2G_TestMessage>(this);
+			GetScene().MessagePoolComponent.Return<C2G_TestMessage>(this);
 #endif
 		}
 		public uint OpCode() { return OuterOpcode.C2G_TestMessage; }
-		[Key(0)]
+		[ProtoMember(1)]
 		public string Tag { get; set; }
 	}
-	[MessagePackObject]
-	public partial class C2G_TestRequest : AMessage, IRequest
+	[ProtoContract]
+	public partial class C2G_TestRequest : AMessage, IRequest, IProto
 	{
 		public static C2G_TestRequest Create(Scene scene)
 		{
@@ -42,17 +46,17 @@ namespace Fantasy
 		{
 			Tag = default;
 #if FANTASY_NET || FANTASY_UNITY
-			Scene.MessagePoolComponent.Return<C2G_TestRequest>(this);
+			GetScene().MessagePoolComponent.Return<C2G_TestRequest>(this);
 #endif
 		}
-		[IgnoreMember]
+		[ProtoIgnore]
 		public G2C_TestResponse ResponseType { get; set; }
 		public uint OpCode() { return OuterOpcode.C2G_TestRequest; }
-		[Key(0)]
+		[ProtoMember(1)]
 		public string Tag { get; set; }
 	}
-	[MessagePackObject]
-	public partial class G2C_TestResponse : AMessage, IResponse
+	[ProtoContract]
+	public partial class G2C_TestResponse : AMessage, IResponse, IProto
 	{
 		public static G2C_TestResponse Create(Scene scene)
 		{
@@ -63,17 +67,17 @@ namespace Fantasy
 			ErrorCode = default;
 			Tag = default;
 #if FANTASY_NET || FANTASY_UNITY
-			Scene.MessagePoolComponent.Return<G2C_TestResponse>(this);
+			GetScene().MessagePoolComponent.Return<G2C_TestResponse>(this);
 #endif
 		}
 		public uint OpCode() { return OuterOpcode.G2C_TestResponse; }
-		[Key(0)]
+		[ProtoMember(1)]
 		public string Tag { get; set; }
-		[Key(1)]
+		[ProtoMember(2)]
 		public uint ErrorCode { get; set; }
 	}
-	[MessagePackObject]
-	public partial class C2G_TestNotifyMessage : AMessage, IMessage
+	[ProtoContract]
+	public partial class C2G_TestNotifyMessage : AMessage, IMessage, IProto
 	{
 		public static C2G_TestNotifyMessage Create(Scene scene)
 		{
@@ -83,15 +87,15 @@ namespace Fantasy
 		{
 			Msg = default;
 #if FANTASY_NET || FANTASY_UNITY
-			Scene.MessagePoolComponent.Return<C2G_TestNotifyMessage>(this);
+			GetScene().MessagePoolComponent.Return<C2G_TestNotifyMessage>(this);
 #endif
 		}
 		public uint OpCode() { return OuterOpcode.C2G_TestNotifyMessage; }
-		[Key(0)]
+		[ProtoMember(1)]
 		public string Msg { get; set; }
 	}
-	[MessagePackObject]
-	public partial class G2C_TestNotifyMessage : AMessage, IMessage
+	[ProtoContract]
+	public partial class G2C_TestNotifyMessage : AMessage, IMessage, IProto
 	{
 		public static G2C_TestNotifyMessage Create(Scene scene)
 		{
@@ -101,15 +105,15 @@ namespace Fantasy
 		{
 			Msg = default;
 #if FANTASY_NET || FANTASY_UNITY
-			Scene.MessagePoolComponent.Return<G2C_TestNotifyMessage>(this);
+			GetScene().MessagePoolComponent.Return<G2C_TestNotifyMessage>(this);
 #endif
 		}
 		public uint OpCode() { return OuterOpcode.G2C_TestNotifyMessage; }
-		[Key(0)]
+		[ProtoMember(1)]
 		public string Msg { get; set; }
 	}
-	[MessagePackObject]
-	public partial class C2G_CreateAddressableRequest : AMessage, IRequest
+	[ProtoContract]
+	public partial class C2G_CreateAddressableRequest : AMessage, IRequest, IProto
 	{
 		public static C2G_CreateAddressableRequest Create(Scene scene)
 		{
@@ -118,15 +122,15 @@ namespace Fantasy
 		public override void Dispose()
 		{
 #if FANTASY_NET || FANTASY_UNITY
-			Scene.MessagePoolComponent.Return<C2G_CreateAddressableRequest>(this);
+			GetScene().MessagePoolComponent.Return<C2G_CreateAddressableRequest>(this);
 #endif
 		}
-		[IgnoreMember]
+		[ProtoIgnore]
 		public G2C_CreateAddressableResponse ResponseType { get; set; }
 		public uint OpCode() { return OuterOpcode.C2G_CreateAddressableRequest; }
 	}
-	[MessagePackObject]
-	public partial class G2C_CreateAddressableResponse : AMessage, IResponse
+	[ProtoContract]
+	public partial class G2C_CreateAddressableResponse : AMessage, IResponse, IProto
 	{
 		public static G2C_CreateAddressableResponse Create(Scene scene)
 		{
@@ -136,15 +140,15 @@ namespace Fantasy
 		{
 			ErrorCode = default;
 #if FANTASY_NET || FANTASY_UNITY
-			Scene.MessagePoolComponent.Return<G2C_CreateAddressableResponse>(this);
+			GetScene().MessagePoolComponent.Return<G2C_CreateAddressableResponse>(this);
 #endif
 		}
 		public uint OpCode() { return OuterOpcode.G2C_CreateAddressableResponse; }
-		[Key(0)]
+		[ProtoMember(1)]
 		public uint ErrorCode { get; set; }
 	}
-	[MessagePackObject]
-	public partial class C2M_TestMessage : AMessage, IAddressableRouteMessage
+	[ProtoContract]
+	public partial class C2M_TestMessage : AMessage, IAddressableRouteMessage, IProto
 	{
 		public static C2M_TestMessage Create(Scene scene)
 		{
@@ -154,16 +158,15 @@ namespace Fantasy
 		{
 			Tag = default;
 #if FANTASY_NET || FANTASY_UNITY
-			Scene.MessagePoolComponent.Return<C2M_TestMessage>(this);
+			GetScene().MessagePoolComponent.Return<C2M_TestMessage>(this);
 #endif
 		}
 		public uint OpCode() { return OuterOpcode.C2M_TestMessage; }
-		public long RouteTypeOpCode() { return InnerRouteType.Addressable; }
-		[Key(0)]
+		[ProtoMember(1)]
 		public string Tag { get; set; }
 	}
-	[MessagePackObject]
-	public partial class C2M_TestRequest : AMessage, IAddressableRouteRequest
+	[ProtoContract]
+	public partial class C2M_TestRequest : AMessage, IAddressableRouteRequest, IProto
 	{
 		public static C2M_TestRequest Create(Scene scene)
 		{
@@ -173,18 +176,17 @@ namespace Fantasy
 		{
 			Tag = default;
 #if FANTASY_NET || FANTASY_UNITY
-			Scene.MessagePoolComponent.Return<C2M_TestRequest>(this);
+			GetScene().MessagePoolComponent.Return<C2M_TestRequest>(this);
 #endif
 		}
-		[IgnoreMember]
+		[ProtoIgnore]
 		public M2C_TestResponse ResponseType { get; set; }
 		public uint OpCode() { return OuterOpcode.C2M_TestRequest; }
-		public long RouteTypeOpCode() { return InnerRouteType.Addressable; }
-		[Key(0)]
+		[ProtoMember(1)]
 		public string Tag { get; set; }
 	}
-	[MessagePackObject]
-	public partial class M2C_TestResponse : AMessage, IAddressableRouteResponse
+	[ProtoContract]
+	public partial class M2C_TestResponse : AMessage, IAddressableRouteResponse, IProto
 	{
 		public static M2C_TestResponse Create(Scene scene)
 		{
@@ -195,17 +197,17 @@ namespace Fantasy
 			ErrorCode = default;
 			Tag = default;
 #if FANTASY_NET || FANTASY_UNITY
-			Scene.MessagePoolComponent.Return<M2C_TestResponse>(this);
+			GetScene().MessagePoolComponent.Return<M2C_TestResponse>(this);
 #endif
 		}
 		public uint OpCode() { return OuterOpcode.M2C_TestResponse; }
-		[Key(0)]
+		[ProtoMember(1)]
 		public string Tag { get; set; }
-		[Key(1)]
+		[ProtoMember(2)]
 		public uint ErrorCode { get; set; }
 	}
-	[MessagePackObject]
-	public partial class C2M_TestNotifyAddressableMessage : AMessage, IAddressableRouteMessage
+	[ProtoContract]
+	public partial class C2M_TestNotifyAddressableMessage : AMessage, IAddressableRouteMessage, IProto
 	{
 		public static C2M_TestNotifyAddressableMessage Create(Scene scene)
 		{
@@ -215,16 +217,15 @@ namespace Fantasy
 		{
 			Msg = default;
 #if FANTASY_NET || FANTASY_UNITY
-			Scene.MessagePoolComponent.Return<C2M_TestNotifyAddressableMessage>(this);
+			GetScene().MessagePoolComponent.Return<C2M_TestNotifyAddressableMessage>(this);
 #endif
 		}
 		public uint OpCode() { return OuterOpcode.C2M_TestNotifyAddressableMessage; }
-		public long RouteTypeOpCode() { return InnerRouteType.Addressable; }
-		[Key(0)]
+		[ProtoMember(1)]
 		public string Msg { get; set; }
 	}
-	[MessagePackObject]
-	public partial class M2C_TestNotifyAddressableMessage : AMessage, IAddressableRouteMessage
+	[ProtoContract]
+	public partial class M2C_TestNotifyAddressableMessage : AMessage, IAddressableRouteMessage, IProto
 	{
 		public static M2C_TestNotifyAddressableMessage Create(Scene scene)
 		{
@@ -234,12 +235,118 @@ namespace Fantasy
 		{
 			Msg = default;
 #if FANTASY_NET || FANTASY_UNITY
-			Scene.MessagePoolComponent.Return<M2C_TestNotifyAddressableMessage>(this);
+			GetScene().MessagePoolComponent.Return<M2C_TestNotifyAddressableMessage>(this);
 #endif
 		}
 		public uint OpCode() { return OuterOpcode.M2C_TestNotifyAddressableMessage; }
-		public long RouteTypeOpCode() { return InnerRouteType.Addressable; }
-		[Key(0)]
+		[ProtoMember(1)]
 		public string Msg { get; set; }
+	}
+	/// <summary>
+	///  通知Gate服务器创建一个Chat的Route连接
+	/// </summary>
+	[ProtoContract]
+	public partial class C2G_CreateChatRouteRequest : AMessage, IRequest, IProto
+	{
+		public static C2G_CreateChatRouteRequest Create(Scene scene)
+		{
+			return scene.MessagePoolComponent.Rent<C2G_CreateChatRouteRequest>();
+		}
+		public override void Dispose()
+		{
+#if FANTASY_NET || FANTASY_UNITY
+			GetScene().MessagePoolComponent.Return<C2G_CreateChatRouteRequest>(this);
+#endif
+		}
+		[ProtoIgnore]
+		public G2C_CreateChatRouteResponse ResponseType { get; set; }
+		public uint OpCode() { return OuterOpcode.C2G_CreateChatRouteRequest; }
+	}
+	[ProtoContract]
+	public partial class G2C_CreateChatRouteResponse : AMessage, IResponse, IProto
+	{
+		public static G2C_CreateChatRouteResponse Create(Scene scene)
+		{
+			return scene.MessagePoolComponent.Rent<G2C_CreateChatRouteResponse>();
+		}
+		public override void Dispose()
+		{
+			ErrorCode = default;
+#if FANTASY_NET || FANTASY_UNITY
+			GetScene().MessagePoolComponent.Return<G2C_CreateChatRouteResponse>(this);
+#endif
+		}
+		public uint OpCode() { return OuterOpcode.G2C_CreateChatRouteResponse; }
+		[ProtoMember(1)]
+		public uint ErrorCode { get; set; }
+	}
+	/// <summary>
+	///  发送一个Route消息给Chat
+	/// </summary>
+	[ProtoContract]
+	public partial class C2Chat_TestMessage : AMessage, ICustomRouteMessage, IProto
+	{
+		public static C2Chat_TestMessage Create(Scene scene)
+		{
+			return scene.MessagePoolComponent.Rent<C2Chat_TestMessage>();
+		}
+		public override void Dispose()
+		{
+			Tag = default;
+#if FANTASY_NET || FANTASY_UNITY
+			GetScene().MessagePoolComponent.Return<C2Chat_TestMessage>(this);
+#endif
+		}
+		public uint OpCode() { return OuterOpcode.C2Chat_TestMessage; }
+		[ProtoIgnore]
+		public int RouteType => Fantasy.RouteType.ChatRoute;
+		[ProtoMember(1)]
+		public string Tag { get; set; }
+	}
+	/// <summary>
+	///  发送一个RPCRoute消息给Chat
+	/// </summary>
+	[ProtoContract]
+	public partial class C2Chat_TestMessageRequest : AMessage, ICustomRouteRequest, IProto
+	{
+		public static C2Chat_TestMessageRequest Create(Scene scene)
+		{
+			return scene.MessagePoolComponent.Rent<C2Chat_TestMessageRequest>();
+		}
+		public override void Dispose()
+		{
+			Tag = default;
+#if FANTASY_NET || FANTASY_UNITY
+			GetScene().MessagePoolComponent.Return<C2Chat_TestMessageRequest>(this);
+#endif
+		}
+		[ProtoIgnore]
+		public Chat2C_TestMessageResponse ResponseType { get; set; }
+		public uint OpCode() { return OuterOpcode.C2Chat_TestMessageRequest; }
+		[ProtoIgnore]
+		public int RouteType => Fantasy.RouteType.ChatRoute;
+		[ProtoMember(1)]
+		public string Tag { get; set; }
+	}
+	[ProtoContract]
+	public partial class Chat2C_TestMessageResponse : AMessage, ICustomRouteResponse, IProto
+	{
+		public static Chat2C_TestMessageResponse Create(Scene scene)
+		{
+			return scene.MessagePoolComponent.Rent<Chat2C_TestMessageResponse>();
+		}
+		public override void Dispose()
+		{
+			ErrorCode = default;
+			Tag = default;
+#if FANTASY_NET || FANTASY_UNITY
+			GetScene().MessagePoolComponent.Return<Chat2C_TestMessageResponse>(this);
+#endif
+		}
+		public uint OpCode() { return OuterOpcode.Chat2C_TestMessageResponse; }
+		[ProtoMember(1)]
+		public string Tag { get; set; }
+		[ProtoMember(2)]
+		public uint ErrorCode { get; set; }
 	}
 }

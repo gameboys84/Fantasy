@@ -4,9 +4,13 @@ public static class NetworkProtocolTemplate
 {
     public static readonly string Template ="""
                                             #if SERVER
-                                            using MessagePack;
+                                            using ProtoBuf;
+                                            (UsingNamespace)
                                             using System.Collections.Generic;
+                                            using MongoDB.Bson.Serialization.Attributes;
                                             using Fantasy;
+                                            using Fantasy.Network.Interface;
+                                            using Fantasy.Serialize;
                                             // ReSharper disable InconsistentNaming
                                             // ReSharper disable RedundantUsingDirective
                                             // ReSharper disable RedundantOverriddenMember
@@ -20,9 +24,12 @@ public static class NetworkProtocolTemplate
                                             namespace Fantasy
                                             {	
                                             #else
-                                            using MessagePack;
+                                            using ProtoBuf;
+                                            (UsingNamespace)
                                             using System.Collections.Generic;
-                                            using Fantasy.Core.Network;
+                                            using Fantasy;
+                                            using Fantasy.Network.Interface;
+                                            using Fantasy.Serialize;
                                             #pragma warning disable CS8618
                                             
                                             namespace Fantasy

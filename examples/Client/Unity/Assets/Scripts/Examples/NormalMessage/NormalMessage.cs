@@ -1,4 +1,8 @@
 using Fantasy;
+using Fantasy.Async;
+using Fantasy.Network;
+using Fantasy.Unity;
+using Fantasy.Unity.Download;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -33,10 +37,11 @@ public class NormalMessage : MonoBehaviour
 
     #region Connect
 
+    private long timerId;
     private async FTask OnConnectButtonClick()
     {
         ConnectButton.interactable = false;
-        _scene = await Fantasy.Entry.Initialize(GetType().Assembly);
+        _scene = await Fantasy.Platform.Unity.Entry.Initialize(GetType().Assembly);
         _session = _scene.Connect(
             "127.0.0.1:20000",
             NetworkProtocolType.KCP,
@@ -45,7 +50,7 @@ public class NormalMessage : MonoBehaviour
             OnConnectDisconnect,
             false, 5000);
     }
-    
+
     private void OnConnectComplete()
     {
         Text.text = "连接成功";

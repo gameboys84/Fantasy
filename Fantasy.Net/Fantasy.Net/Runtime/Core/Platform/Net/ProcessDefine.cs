@@ -1,12 +1,14 @@
 #if FANTASY_NET
 using CommandLine;
-#pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
-namespace Fantasy;
+using Fantasy.Network;
 
-public sealed class CommandLineOptions
+#pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
+namespace Fantasy.Platform.Net;
+
+internal sealed class CommandLineOptions
 {
     /// <summary>
-    /// 进程Id，获取或设置进程的唯一标识符。
+    /// 用于启动指定的进程，该进程的 ID 与 ProcessConfig 的 ID 相关联。此参数只能传递单个 ID，不支持传递多个 ID。
     /// </summary>
     [Option("pid", Required = false, Default = (uint)0, HelpText = "Enter an ProcessIdId such as 1")]
     public uint ProcessId { get; set; }
@@ -57,7 +59,7 @@ public sealed class CommandLineOptions
 /// <summary>
 /// AppDefine
 /// </summary>
-public static class ProcessDefine
+internal static class ProcessDefine
 {
     /// <summary>
     /// 命令行选项

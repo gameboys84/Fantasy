@@ -1,4 +1,8 @@
-﻿namespace Fantasy.Gate;
+﻿using Fantasy.Async;
+using Fantasy.Network;
+using Fantasy.Network.Interface;
+
+namespace Fantasy.Gate;
 
 public sealed class C2G_TestNotifyMessageHandler : Message<C2G_TestNotifyMessage>
 {

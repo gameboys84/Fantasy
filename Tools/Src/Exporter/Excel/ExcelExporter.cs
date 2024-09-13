@@ -5,7 +5,12 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using Fantasy;
+using Fantasy.Assembly;
+using Fantasy.ConfigTable;
+using Fantasy.DataStructure.Collection;
 using Fantasy.Exporter;
+using Fantasy.Helper;
+using Fantasy.Serialize;
 using Microsoft.CodeAnalysis;
 using Newtonsoft.Json;
 using OfficeOpenXml;
@@ -167,7 +172,7 @@ public sealed partial class ExcelExporter
                 break;
             }
         }
-
+        SerializerManager.Initialize();
         Find();
         Parsing();
         ExportToBinary();
@@ -576,12 +581,12 @@ public sealed partial class ExcelExporter
                     case PlatformID.Win32Windows:
                     case PlatformID.WinCE:
                     {
-                        fileBuilder.Append($"\r\n\t\t[Key({index++})]\r\n");
+                        fileBuilder.Append($"\r\n\t\t[ProtoMember({++index})]\r\n");
                         break;
                     }
                     default:
                     {
-                        fileBuilder.Append($"\n\t\t[Key({index++})]\n");
+                        fileBuilder.Append($"\n\t\t[ProtoMember({++index})]\n");
                         break;
                     }
                 }
@@ -592,7 +597,7 @@ public sealed partial class ExcelExporter
                         : $"\t\tpublic {colType} {colName} {{ get; set; }} // {remarks}");
             }
         }
-
+        
         var template = ExcelTemplate.Template;
         
         if (fileBuilder.Length > 0)
@@ -640,13 +645,13 @@ public sealed partial class ExcelExporter
                 
                 if (ExporterAges.Instance.ExportPlatform.HasFlag(ExportPlatform.Server))
                 {
-                    var serverColInfoCount = excelTable.ServerColInfos.Sum(d=>d.Value.Count);
+                    var serverColInfoCount = excelTable.ServerColInfos.Sum(d => d.Value.Count);
                     serverDynamicInfo = serverColInfoCount == 0 ? null : DynamicAssembly.GetDynamicInfo(dynamicServerAssembly, csName);
                 }
 
                 if (ExporterAges.Instance.ExportPlatform.HasFlag(ExportPlatform.Client))
                 {
-                    var clientColInfoCount = excelTable.ClientColInfos.Sum(d=>d.Value.Count);
+                    var clientColInfoCount = excelTable.ClientColInfos.Sum(d => d.Value.Count);
                     clientDynamicInfo = clientColInfoCount == 0 ? null : DynamicAssembly.GetDynamicInfo(dynamicClientAssembly, csName);
                 }
 
@@ -700,14 +705,14 @@ public sealed partial class ExcelExporter
 
                 if (serverDynamicInfo?.ConfigData != null)
                 {
-                    var bytes = MessagePackHelper.Serialize(serverDynamicInfo.ConfigData);
-                    
+                    var memoryStream = new MemoryStreamBuffer();
+                    SerializerManager.GetSerializer(FantasySerializerType.ProtoBuf).Serialize(serverDynamicInfo.ConfigData, memoryStream);
                     if (!Directory.Exists(_excelServerBinaryDirectory))
                     {
                         Directory.CreateDirectory(_excelServerBinaryDirectory);
                     }
-                    
-                    File.WriteAllBytes(Path.Combine(_excelServerBinaryDirectory, $"{csName}Data.bytes"), bytes);
+                    var asSpan = memoryStream.GetBuffer().AsSpan(0, (int)memoryStream.Position);
+                    File.WriteAllBytes(Path.Combine(_excelServerBinaryDirectory, $"{csName}Data.bytes"), asSpan.ToArray());
 
                     if (serverDynamicInfo.Json.Length > 0)
                     {
@@ -724,14 +729,14 @@ public sealed partial class ExcelExporter
                 
                 if (clientDynamicInfo?.ConfigData != null)
                 {
-                    var bytes = MessagePackHelper.Serialize(clientDynamicInfo.ConfigData);
-                    
+                    var memoryStream = new MemoryStreamBuffer();
+                    SerializerManager.GetSerializer(FantasySerializerType.ProtoBuf).Serialize(clientDynamicInfo.ConfigData, memoryStream);
                     if (!Directory.Exists(_excelClientBinaryDirectory))
                     {
                         Directory.CreateDirectory(_excelClientBinaryDirectory);
                     }
-                    
-                    File.WriteAllBytes(Path.Combine(_excelClientBinaryDirectory, $"{csName}Data.bytes"), bytes);
+                    var asSpan = memoryStream.GetBuffer().AsSpan(0, (int)memoryStream.Position);
+                    File.WriteAllBytes(Path.Combine(_excelClientBinaryDirectory, $"{csName}Data.bytes"), asSpan.ToArray());
                 
                     if (clientDynamicInfo.Json.Length > 0)
                     {

@@ -8,16 +8,24 @@ using System.Net;
 using System.Net.Sockets;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 using System.Threading;
+using Fantasy.Async;
+using Fantasy.Entitas.Interface;
+using Fantasy.Helper;
+using Fantasy.Network.Interface;
+using Fantasy.PacketParser;
+using Fantasy.Serialize;
 using KCP;
 // ReSharper disable ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
 // ReSharper disable PossibleNullReferenceException
+#pragma warning disable CS1591 // Missing XML comment for publicly visible type or member
 #pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
 
 #pragma warning disable CS8622 // Nullability of reference types in type of parameter doesn't match the target delegate (possibly because of nullability attributes).
 
 #pragma warning disable CS8602 // Dereference of a possibly null reference.
-namespace Fantasy
+namespace Fantasy.Network.KCP
 {
     public sealed class KCPClientNetworkUpdateSystem : UpdateSystem<KCPClientNetwork>
     {
@@ -32,7 +40,6 @@ namespace Fantasy
         private Socket _socket;
         private int _maxSndWnd;
         private long _startTime;
-        private uint _channelId;
         private bool _isConnected;
         private bool _isDisconnect;
         private uint _updateMinTime;
@@ -44,7 +51,6 @@ namespace Fantasy
         private readonly Pipe _pipe = new Pipe();
         private readonly byte[] _sendBuff = new byte[5];
         private readonly byte[] _receiveBuffer = new byte[Packet.PacketBodyMaxLength + 20];
-        private readonly byte[] _channelIdBytes = new byte[sizeof(uint)];
         private readonly List<uint> _updateTimeOutTime = new List<uint>();
         private readonly SortedSet<uint> _updateTimer = new SortedSet<uint>();
         private readonly SocketAsyncEventArgs _connectEventArgs = new SocketAsyncEventArgs();
@@ -56,17 +62,7 @@ namespace Fantasy
         private event Action OnConnectFail;
         private event Action OnConnectComplete;
         private event Action OnConnectDisconnect;
-        
-        public uint ChannelId 
-        {
-            get => _channelId;
-            private set
-            {
-                _channelId = value;
-                _channelId.GetBytes(_channelIdBytes);
-            }
-        }
-        
+        public uint ChannelId { get; private set; }
         private uint TimeNow => (uint) (TimeHelper.Now - _startTime);
         
         public void Initialize(NetworkTarget networkTarget)
@@ -299,8 +295,7 @@ namespace Fantasy
                 fixed (byte* bytePointer = &arraySegment.Array[arraySegment.Offset])
                 {
                     header = (KcpHeader)bytePointer[0];
-                    channelId = (uint)(bytePointer[1] | (bytePointer[2] << 8) | (bytePointer[3] << 16) | (bytePointer[4] << 24));
-                    message = readOnlyMemory.Slice(5);
+                    channelId = Unsafe.ReadUnaligned<uint>(ref bytePointer[1]);
                 }
             }
             else
@@ -308,10 +303,11 @@ namespace Fantasy
                 // 如果无法获取数组段，回退到安全代码来执行。这种情况几乎不会发生、为了保险还是写一下了。
                 var firstSpan = readOnlyMemory.Span;
                 header = (KcpHeader)firstSpan[0];
-                channelId = BitConverter.ToUInt32(firstSpan.Slice(1, 4));
-                message = readOnlyMemory.Slice(5);
+                channelId = MemoryMarshal.Read<uint>(firstSpan.Slice(1, 4));
+               
             }
-        
+            
+            message = readOnlyMemory.Slice(5);
             buffer = buffer.Slice(readOnlyMemory.Length);
             return true;
         }
@@ -519,14 +515,14 @@ namespace Fantasy
         private const byte KcpHeaderRequestConnection = (byte)KcpHeader.RequestConnection;
         private const byte KcpHeaderConfirmConnection = (byte)KcpHeader.ConfirmConnection;
 
-        public override void Send(uint rpcId, long routeTypeOpCode, long routeId, MemoryStreamBuffer memoryStream, object message)
+        public override void Send(uint rpcId, long routeId, MemoryStreamBuffer memoryStream, IMessage message)
         {
             if (_cancellationTokenSource.IsCancellationRequested)
             {
                 return;
             }
             
-            var buffer = _packetParser.Pack(ref rpcId, ref routeTypeOpCode, ref routeId, memoryStream, message);
+            var buffer = _packetParser.Pack(ref rpcId, ref routeId, memoryStream, message);
 
             if (!_isConnected)
             {
@@ -547,7 +543,7 @@ namespace Fantasy
                 return;
             }
             
-            _kcp.Send(memoryStream.GetBuffer(), 0, (int)memoryStream.Length);
+            _kcp.Send(memoryStream.GetBuffer(), 0, (int)memoryStream.Position);
             ReturnMemoryStream(memoryStream);
             AddToUpdate(0);
         }
@@ -559,10 +555,7 @@ namespace Fantasy
                 fixed (byte* p = _sendBuff)
                 {
                     p[0] = KcpHeaderRequestConnection;
-                    p[1] = _channelIdBytes[0];
-                    p[2] = _channelIdBytes[1];
-                    p[3] = _channelIdBytes[2];
-                    p[4] = _channelIdBytes[3];
+                    *(uint*)(p + 1) = ChannelId;
                 }
                 
                 SendAsync(_sendBuff, 0, 5);
@@ -580,12 +573,9 @@ namespace Fantasy
                 fixed (byte* p = _sendBuff)
                 {
                     p[0] = KcpHeaderConfirmConnection;
-                    p[1] = _channelIdBytes[0];
-                    p[2] = _channelIdBytes[1];
-                    p[3] = _channelIdBytes[2];
-                    p[4] = _channelIdBytes[3];
+                    *(uint*)(p + 1) = ChannelId;
                 }
-
+                
                 SendAsync(_sendBuff, 0, 5);
             }
             catch (Exception e)
@@ -601,10 +591,7 @@ namespace Fantasy
                 fixed (byte* p = _sendBuff)
                 {
                     p[0] = KcpHeaderDisconnect;
-                    p[1] = _channelIdBytes[0];
-                    p[2] = _channelIdBytes[1];
-                    p[3] = _channelIdBytes[2];
-                    p[4] = _channelIdBytes[3];
+                    *(uint*)(p + 1) = ChannelId;
                 }
                 
                 SendAsync(_sendBuff, 0, 5);
@@ -661,12 +648,9 @@ namespace Fantasy
             fixed (byte* p = buffer)
             {
                 p[0] = KcpHeaderReceiveData;
-                p[1] = _channelIdBytes[0];
-                p[2] = _channelIdBytes[1];
-                p[3] = _channelIdBytes[2];
-                p[4] = _channelIdBytes[3];
+                *(uint*)(p + 1) = ChannelId;
             }
-
+            
             SendAsync(buffer, 0, count + 5);
         }
 
@@ -688,9 +672,11 @@ namespace Fantasy
         }
         
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static uint CreateChannelId()
+        private static unsafe uint CreateChannelId()
         {
-            return 0xC0000000 | (uint)new Random().Next();
+            uint value;
+            RandomNumberGenerator.Fill(MemoryMarshal.CreateSpan(ref *(byte*)&value, 4));
+            return 0xC0000000 | (value & int.MaxValue);
         }
     }
 }

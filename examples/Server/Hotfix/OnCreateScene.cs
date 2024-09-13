@@ -1,4 +1,10 @@
-﻿namespace Fantasy;
+﻿using Fantasy.Async;
+using Fantasy.Entitas;
+using Fantasy.Entitas.Interface;
+using Fantasy.Event;
+using MongoDB.Driver;
+
+namespace Fantasy;
 
 public sealed class OnCreateSceneEvent : AsyncEventSystem<OnCreateScene>
 {
@@ -9,7 +15,7 @@ public sealed class OnCreateSceneEvent : AsyncEventSystem<OnCreateScene>
     /// </summary>
     /// <param name="self">The OnCreateScene object.</param>
     /// <returns>A task representing the asynchronous operation.</returns>
-    public override async FTask Handler(OnCreateScene self)
+    protected override async FTask Handler(OnCreateScene self)
     {
         var scene = self.Scene;
 
@@ -17,7 +23,7 @@ public sealed class OnCreateSceneEvent : AsyncEventSystem<OnCreateScene>
         {
             case SceneType.Addressable:
             {
-                scene.AddComponent<AddressableManageComponent>(); 
+                // scene.AddComponent<AddressableManageComponent>(); 
                 _addressableSceneRunTimeId = scene.RunTimeId;
                 break;
             }
@@ -25,29 +31,33 @@ public sealed class OnCreateSceneEvent : AsyncEventSystem<OnCreateScene>
             {
                 break;
             }
-            case SceneType.Gate: 
+            case SceneType.Chat:
             {
-                // var tasks = new List<FTask>(2000);
-                // var session = scene.GetSession(_addressableSceneRunTimeId);
-                // var sceneNetworkMessagingComponent = scene.NetworkMessagingComponent;
-                // var g2ATestRequest = new G2A_TestRequest();
-                //
-                // async FTask Call()
-                // {
-                //     await sceneNetworkMessagingComponent.CallInnerRouteBySession(session,_addressableSceneRunTimeId,g2ATestRequest);
-                // }
-                //
-                // // Call().Coroutine();
-                //
-                // for (int i = 0; i < 100000000000; i++)
-                // {
-                //     tasks.Clear();
-                //     for (int j = 0; j < tasks.Capacity; ++j)
+                break;
+            }
+            case SceneType.Gate:
+            {
+                //     var tasks = new List<FTask>(2000);
+                //     var session = scene.GetSession(_addressableSceneRunTimeId);
+                //     var sceneNetworkMessagingComponent = scene.NetworkMessagingComponent;
+                //     var g2ATestRequest = new G2A_TestRequest();
+                //     
+                //     async FTask Call()
                 //     {
-                //         tasks.Add(Call());
+                //         await sceneNetworkMessagingComponent.CallInnerRouteBySession(session,_addressableSceneRunTimeId,g2ATestRequest);
                 //     }
-                //     await FTask.WaitAll(tasks);
-                // }
+                //     
+                //     // Call().Coroutine();
+                //     
+                //     for (int i = 0; i < 100000000000; i++)
+                //     {
+                //         tasks.Clear();
+                //         for (int j = 0; j < tasks.Capacity; ++j)
+                //         {
+                //             tasks.Add(Call());
+                //         }
+                //         await FTask.WaitAll(tasks);
+                //     }
                 break;
             }
         }

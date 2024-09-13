@@ -1,8 +1,9 @@
 using System;
 using System.Buffers;
 using System.IO;
+#pragma warning disable CS1591 // Missing XML comment for publicly visible type or member
 
-namespace Fantasy
+namespace Fantasy.Serialize
 {
     public sealed class MemoryStreamBuffer : MemoryStream, IBufferWriter<byte>
     {
@@ -34,8 +35,7 @@ namespace Fantasy
 
             if (Length - Position <= sizeHint)
             {
-                // 如果 sizeHint 为 0，MessagePack 会在序列化空对象时写入一个字节，这里手动处理这个特殊情况。
-                SetLength(Position + (sizeHint == 0 ? 1 : sizeHint));
+                SetLength(Position + sizeHint);
             }
             
             return new Memory<byte>(GetBuffer(), (int)Position, (int)(Length - Position));
@@ -50,8 +50,7 @@ namespace Fantasy
             
             if (Length - Position <= sizeHint)
             {
-                // 如果 sizeHint 为 0，MessagePack 会在序列化空对象时写入一个字节，这里手动处理这个特殊情况。
-                SetLength(Position + (sizeHint == 0 ? 1 : sizeHint));
+                SetLength(Position + sizeHint);
             }
             
             return new Span<byte>(GetBuffer(), (int)Position, (int)(Length - Position));

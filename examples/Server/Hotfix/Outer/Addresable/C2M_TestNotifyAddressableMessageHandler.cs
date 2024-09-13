@@ -1,4 +1,8 @@
-﻿namespace Fantasy;
+﻿using Fantasy.Async;
+using Fantasy.Network.Interface;
+using MongoDB.Bson;
+
+namespace Fantasy;
 
 public sealed class C2M_TestNotifyAddressableMessageHandler : Addressable<Unit, C2M_TestNotifyAddressableMessage>
 {
@@ -6,12 +10,12 @@ public sealed class C2M_TestNotifyAddressableMessageHandler : Addressable<Unit, 
     {
         Log.Debug($"C2M_TestNotifyAddressableMessageHandler = {message.ToJson()}");
 
-        var addressableRouteComponent = entity.GetComponent<AddressableMessageComponent>();
+        //var addressableRouteComponent = entity.GetComponent<AddressableMessageComponent>();
 
-        await entity.Scene.NetworkMessagingComponent.SendAddressable(addressableRouteComponent.AddressableId, new M2C_TestNotifyAddressableMessage()
-        {
-            Msg = "M2C_TestNotifyAddressableMessage From Server"
-        });
+        //await entity.Scene.NetworkMessagingComponent.SendAddressable(addressableRouteComponent.AddressableId, new M2C_TestNotifyAddressableMessage()
+        //{
+        //    Msg = "M2C_TestNotifyAddressableMessage From Server"
+        //});
 
         //}); 
         //var sceneConfig = SceneConfigData.Instance.GetSceneBySceneType(SceneType.Map)[0];
