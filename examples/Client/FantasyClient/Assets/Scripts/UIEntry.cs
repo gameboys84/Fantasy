@@ -70,11 +70,11 @@ namespace GameLogic
 		}
 		private void OnClickReceiveButtonBtn()
 		{
-			Log("OnClickReceiveButtonBtn");
-			NetworkManager.Instance.Session.Send(new C2G_TestNotifyMessage()
-			{
-				Msg = "OnClickReceiveButtonBtn"
-			});
+			Log("OnClickReceiveButtonBtn, 通知类消息要求服务器先缓存玩家session，再在需要时定向发送通知，主要的实现在服务端，这里就不演示了");
+			// NetworkManager.Instance.Session.Send(new C2G_TestNotifyMessage()
+			// {
+			// 	Msg = "OnClickReceiveButtonBtn"
+			// });
 		}
 		
 		private async void OnClickLoginAddressButtonBtn()
@@ -124,11 +124,11 @@ namespace GameLogic
 		}
 		private void OnClickReceiveAddressButtonBtn()
 		{
-			Log("OnClickReceiveAddressButtonBtn");
-			NetworkManager.Instance.Session.Send(new C2M_TestNotifyAddressableMessage()
-			{
-				Msg = "OnClickReceiveAddressButtonBtn"
-			});
+			Log("OnClickReceiveAddressButtonBtn, 通知类消息要求服务器先缓存玩家session，再在需要时定向发送通知，主要的实现在服务端，这里就不演示了");
+			// NetworkManager.Instance.Session.Send(new C2M_TestNotifyAddressableMessage()
+			// {
+			// 	Msg = "OnClickReceiveAddressButtonBtn"
+			// });
 		}
 		private void OnClickConnentServerButtonBtn()
 		{

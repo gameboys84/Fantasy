@@ -1,5 +1,6 @@
 ﻿using Fantasy.Async;
 using Fantasy.Network.Interface;
+using Fantasy.Network.Route;
 using MongoDB.Bson;
 
 namespace Fantasy;
@@ -10,7 +11,10 @@ public sealed class C2M_TestNotifyAddressableMessageHandler : Addressable<Unit, 
     {
         Log.Debug($"C2M_TestNotifyAddressableMessageHandler = {message.ToJson()}");
 
-        //var addressableRouteComponent = entity.GetComponent<AddressableMessageComponent>();
+
+        var addressableRouteComponent = entity.GetComponent<AddressableMessageComponent>();
+
+        // Route能否直接发消息给客户端？？ 模拟服务器主动向客户端发送消息
 
         //await entity.Scene.NetworkMessagingComponent.SendAddressable(addressableRouteComponent.AddressableId, new M2C_TestNotifyAddressableMessage()
         //{

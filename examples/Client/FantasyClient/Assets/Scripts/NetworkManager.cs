@@ -29,8 +29,10 @@ public class NetworkManager : MonoBehaviour
         if (_inited)
             return;
         
+        Entry.Initialize(GetType().Assembly);
         _inited = true;
-        _scene = await Entry.Initialize(GetType().Assembly);
+        
+        _scene = await Scene.Create(SceneRuntimeType.MainThread);
     }
 
     // 127.0.0.1:20000, 5000
