@@ -9,7 +9,7 @@
             "Comment": "ProtoBuf生成到服务端的文件夹位置"
         },
         "NetworkProtocolClientDirectory": {
-            "Value": "../../Client/FantasyClient/Assets/Scripts/Hotfix/Generate/Protocol/",
+            "Value": "E:/Git/NetworkComponent/Assets/Scripts/Hotfix/Generate/Protocol/",
             "Comment": "ProtoBuf生成到客户端的文件夹位置"
         },
         "ExcelProgramPath": {
@@ -25,7 +25,7 @@
             "Comment": "Excel生成的代码文件、在服务端文件夹位置"
         },
         "ExcelClientFileDirectory": {
-            "Value": "../../Client/FantasyClient/Assets/Scripts/Hotfix/Generate/Config/",
+            "Value": "E:/Git/NetworkComponent/Assets/Scripts/Hotfix/Generate/Config/",
             "Comment": "Excel生成的代码文件、在客户端文件夹位置"
         },
         "ExcelServerBinaryDirectory": {
@@ -49,7 +49,7 @@
             "Comment": "Excel在服务端生成自定义代码的文件夹位置"
         },
         "ClientCustomExportDirectory": {
-            "Value": "../../Client/FantasyClient/Assets/Scripts/Hotfix/Generate/CustomExport",
+            "Value": "E:/Git/NetworkComponent/Assets/Scripts/Hotfix/Generate/CustomExport",
             "Comment": "Excel在客户端端生成自定义代码的文件夹位置"
         },
         "Serializes": {
