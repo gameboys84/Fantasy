@@ -1,10 +1,12 @@
 #if FANTASY_NET
 // ReSharper disable ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
 using System.Runtime.CompilerServices;
+using Fantasy.Async;
 using Fantasy.Network;
 using Fantasy.Network.Interface;
 using Fantasy.PacketParser;
 using Fantasy.PacketParser.Interface;
+#pragma warning disable CS8604 // Possible null reference argument.
 
 #pragma warning disable CS1591 // Missing XML comment for publicly visible type or member
 namespace Fantasy.Scheduler
@@ -14,7 +16,7 @@ namespace Fantasy.Scheduler
     /// </summary>
     internal sealed class InnerMessageScheduler(Scene scene) : ANetworkMessageScheduler(scene)
     {
-        public override void Scheduler(Session session, APackInfo packInfo)
+        public override async FTask Scheduler(Session session, APackInfo packInfo)
         {
             var protocol = packInfo.OpCodeIdStruct.Protocol;
             
@@ -49,8 +51,10 @@ namespace Fantasy.Scheduler
                 case OpCodeType.InnerResponse:
                 case OpCodeType.InnerRouteResponse:
                 case OpCodeType.InnerAddressableResponse:
+                case OpCodeType.InnerRoamingResponse:
                 case OpCodeType.OuterAddressableResponse:
                 case OpCodeType.OuterCustomRouteResponse:
+                case OpCodeType.OuterRoamingResponse:
                 {
                     using (packInfo)
                     {
@@ -68,29 +72,7 @@ namespace Fantasy.Scheduler
                 }
                 case OpCodeType.InnerRouteMessage:
                 case OpCodeType.InnerAddressableMessage:
-                {
-                    using (packInfo)
-                    {
-                        var messageType = MessageDispatcherComponent.GetOpCodeType(packInfo.ProtocolCode);
-
-                        if (messageType == null)
-                        {
-                            throw new Exception($"InnerMessageScheduler error 可能遭受到恶意发包或没有协议定义ProtocolCode ProtocolCode：{packInfo.ProtocolCode}");
-                        }
-
-                        if (!Scene.TryGetEntity(packInfo.RouteId, out var entity))
-                        {
-                            throw new Exception($"The Entity associated with RouteId = {packInfo.RouteId} was not found! messageType = {messageType.FullName}");
-                        }
-
-                        var obj = packInfo.Deserialize(messageType);
-                        Scene.MessageDispatcherComponent.RouteMessageHandler(session, messageType, entity, (IMessage)obj, packInfo.RpcId).Coroutine();
-                    }
-
-                    return;
-                }
-                case OpCodeType.InnerRouteRequest:
-                case OpCodeType.InnerAddressableRequest:
+                case OpCodeType.InnerRoamingMessage:
                 {
                     using (packInfo)
                     {
@@ -104,10 +86,36 @@ namespace Fantasy.Scheduler
                         if (!Scene.TryGetEntity(packInfo.RouteId, out var entity))
                         {
                             Scene.MessageDispatcherComponent.FailRouteResponse(session, messageType, InnerErrorCode.ErrNotFoundRoute, packInfo.RpcId);
+                            return;
                         }
 
                         var obj = packInfo.Deserialize(messageType);
-                        Scene.MessageDispatcherComponent.RouteMessageHandler(session, messageType, entity, (IMessage)obj, packInfo.RpcId).Coroutine();
+                        await Scene.MessageDispatcherComponent.RouteMessageHandler(session, messageType, entity, (IMessage)obj, packInfo.RpcId);
+                    }
+
+                    return;
+                }
+                case OpCodeType.InnerRouteRequest:
+                case OpCodeType.InnerAddressableRequest:
+                case OpCodeType.InnerRoamingRequest:
+                {
+                    using (packInfo)
+                    {
+                        var messageType = MessageDispatcherComponent.GetOpCodeType(packInfo.ProtocolCode);
+
+                        if (messageType == null)
+                        {
+                            throw new Exception($"InnerMessageScheduler error 可能遭受到恶意发包或没有协议定义ProtocolCode ProtocolCode：{packInfo.ProtocolCode}");
+                        }
+
+                        if (!Scene.TryGetEntity(packInfo.RouteId, out var entity))
+                        {
+                            Scene.MessageDispatcherComponent.FailRouteResponse(session, messageType, InnerErrorCode.ErrNotFoundRoute, packInfo.RpcId);
+                            return;
+                        }
+
+                        var obj = packInfo.Deserialize(messageType);
+                        await Scene.MessageDispatcherComponent.RouteMessageHandler(session, messageType, entity, (IMessage)obj, packInfo.RpcId);
                     }
 
                     return;
@@ -116,6 +124,8 @@ namespace Fantasy.Scheduler
                 case OpCodeType.OuterAddressableRequest:
                 case OpCodeType.OuterAddressableMessage:
                 case OpCodeType.OuterCustomRouteMessage:
+                case OpCodeType.OuterRoamingMessage:
+                case OpCodeType.OuterRoamingRequest:
                 {
                     var entity = Scene.GetEntity(packInfo.RouteId);
 
@@ -149,11 +159,11 @@ namespace Fantasy.Scheduler
                                             case OpCodeType.OuterAddressableMessage:
                                             {
                                                 Scene.MessageDispatcherComponent.FailRouteResponse(session, messageType, InnerErrorCode.ErrNotFoundRoute, packInfo.RpcId);
-                                                break;
+                                                return;
                                             }
                                         }
                                         
-                                        throw new Exception($"The Entity associated with RouteId = {packInfoRouteId} was not found! messageType = {messageType.FullName}");
+                                        throw new Exception($"The Entity associated with RouteId = {packInfoRouteId} was not found! messageType = {messageType.FullName} protocol = {protocol}");
                                     }
                                 }
                             }
@@ -180,7 +190,7 @@ namespace Fantasy.Scheduler
                                 }
                             
                                 var obj = packInfo.Deserialize(messageType);
-                                Scene.MessageDispatcherComponent.RouteMessageHandler(session, messageType, entity, (IMessage)obj, packInfo.RpcId).Coroutine();
+                                await Scene.MessageDispatcherComponent.RouteMessageHandler(session, messageType, entity, (IMessage)obj, packInfo.RpcId);
                             }
                             
                             return;

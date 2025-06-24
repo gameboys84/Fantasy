@@ -14,7 +14,9 @@ using Fantasy.PacketParser.Interface;
 using Fantasy.Scheduler;
 using Fantasy.Serialize;
 #if FANTASY_NET
+using Fantasy.Network.Route;
 using Fantasy.Platform.Net;
+using Fantasy.Network.Roaming;
 #pragma warning disable CS1591 // Missing XML comment for publicly visible type or member
 #endif
 // ReSharper disable ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
@@ -37,21 +39,24 @@ namespace Fantasy.Network
         /// <summary>
         /// 关联的网络连接通道
         /// </summary>
-        public INetworkChannel Channel { get; private set; }
+        internal INetworkChannel Channel { get; private set; }
         /// <summary>
         /// 当前Session的终结点信息
         /// </summary>
         public IPEndPoint RemoteEndPoint { get; private set; }
         private ANetworkMessageScheduler NetworkMessageScheduler { get; set;}
-        public readonly Dictionary<long, FTask<IResponse>> RequestCallback = new();
+        internal readonly Dictionary<long, FTask<IResponse>> RequestCallback = new();
         /// <summary>
         /// Session的Dispose委托
         /// </summary>
-        public event Action OnDispose;
-#if FANTASY_NET       
+        internal event Action OnDispose;
+#if FANTASY_NET
+        internal RouteComponent RouteComponent;
+        internal SessionRoamingComponent SessionRoamingComponent;
+        internal AddressableRouteComponent AddressableRouteComponent;
         internal static Session Create(ANetworkMessageScheduler networkMessageScheduler, ANetworkServerChannel channel, NetworkTarget networkTarget)
         {
-            var session = Entity.Create<Session>(channel.Scene, false, false);
+            var session = Entity.Create<Session>(channel.Scene, false, true);
             session.Channel = channel;
             session.NetworkMessageScheduler = networkMessageScheduler;
             session.RemoteEndPoint = channel.RemoteEndPoint as IPEndPoint;
@@ -70,7 +75,7 @@ namespace Fantasy.Network
         internal static Session Create(AClientNetwork network, IPEndPoint remoteEndPoint)
         {
             // 创建会话实例
-            var session = Entity.Create<Session>(network.Scene, false, false);
+            var session = Entity.Create<Session>(network.Scene, false, true);
             session.Channel = network;
             session.RemoteEndPoint = remoteEndPoint;
             session.OnDispose = network.Dispose;
@@ -153,6 +158,11 @@ namespace Fantasy.Network
             Channel = null;
             RemoteEndPoint = null;
             NetworkMessageScheduler = null;
+#if FANTASY_NET
+            SessionRoamingComponent = null;
+            RouteComponent = null;
+            AddressableRouteComponent = null;
+#endif
             base.Dispose();
 
             // 终止所有等待中的请求回调
@@ -248,7 +258,7 @@ namespace Fantasy.Network
 
             try
             {
-                NetworkMessageScheduler.Scheduler(this, packInfo);
+                NetworkMessageScheduler.Scheduler(this, packInfo).Coroutine();
             }
             catch (Exception e)
             {

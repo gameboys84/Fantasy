@@ -30,7 +30,7 @@ namespace Fantasy.Event
         private readonly OneToManyList<long, EventCache> _assemblyEvents = new();
         private readonly OneToManyList<long, EventCache> _assemblyAsyncEvents = new();
 
-        public async FTask<EventComponent> Initialize()
+        internal async FTask<EventComponent> Initialize()
         {
             await AssemblySystem.Register(this);
             return this;
@@ -41,7 +41,7 @@ namespace Fantasy.Event
         public async FTask Load(long assemblyIdentity)
         {
             var tcs = FTask.Create(false);
-            Scene.ThreadSynchronizationContext.Post(() =>
+            Scene?.ThreadSynchronizationContext.Post(() =>
             {
                 LoadInner(assemblyIdentity);
                 tcs.SetResult();
@@ -52,7 +52,7 @@ namespace Fantasy.Event
         public async FTask ReLoad(long assemblyIdentity)
         {
             var tcs = FTask.Create(false);
-            Scene.ThreadSynchronizationContext.Post(() =>
+            Scene?.ThreadSynchronizationContext.Post(() =>
             {
                 OnUnLoadInner(assemblyIdentity);
                 LoadInner(assemblyIdentity);
@@ -64,7 +64,7 @@ namespace Fantasy.Event
         public async FTask OnUnLoad(long assemblyIdentity)
         {
             var tcs = FTask.Create(false);
-            Scene.ThreadSynchronizationContext.Post(() =>
+            Scene?.ThreadSynchronizationContext.Post(() =>
             {
                 OnUnLoadInner(assemblyIdentity);
                 tcs.SetResult();

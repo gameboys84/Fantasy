@@ -12,6 +12,7 @@ public class RouteMessage : MonoBehaviour
     public Button Button2;
     public Button Button3;
     public Button Button4;
+    public Button Button5;
     
     private Scene _scene;
     private Session _session;
@@ -20,18 +21,28 @@ public class RouteMessage : MonoBehaviour
     {
         StartAsync().Coroutine();
     }
+    
+    private void OnDestroy()
+    {
+        // 当Unity关闭或当前脚本销毁的时候，销毁这个Scene。
+        // 这样网络和Fantasy的相关功能都会销毁掉了。
+        // 这里只是展示一下如何销毁这个Scene的地方。
+        // 但这里销毁的时机明显是不对的，应该放到一个全局的地方。
+        _scene?.Dispose();
+    }
 
     private async FTask StartAsync()
     {
         // 初始化框架
-        Fantasy.Platform.Unity.Entry.Initialize(GetType().Assembly);
+        await Fantasy.Platform.Unity.Entry.Initialize(GetType().Assembly);
         // 创建一个Scene，这个Scene代表一个客户端的场景，客户端的所有逻辑都可以写这里
         // 如果有自己的框架，也可以就单纯拿这个Scene做网络通讯也没问题。
-        _scene = await Scene.Create(SceneRuntimeType.MainThread);
+        _scene = await Scene.Create(SceneRuntimeMode.MainThread);
         // 详细操作步骤，都在服务器的G2Chat_CreateRouteRequestHandler.cs文件里有详细说明。
         Button2.interactable = false;
         Button3.interactable = false;
         Button4.interactable = false;
+        Button5.interactable = false;
         Button1.onClick.RemoveAllListeners();
         Button1.onClick.AddListener(Connect);
         Button2.onClick.RemoveAllListeners();
@@ -46,6 +57,8 @@ public class RouteMessage : MonoBehaviour
         {
             CallRouteMessage().Coroutine();
         });
+        Button5.onClick.RemoveAllListeners();
+        Button5.onClick.AddListener(PushMessage);
     }
 
     private void Connect()
@@ -88,6 +101,7 @@ public class RouteMessage : MonoBehaviour
 
         Button3.interactable = true;
         Button4.interactable = true;
+        Button5.interactable = true;
         Log.Debug($"Route连接已经建立完成");
     }
 
@@ -115,5 +129,14 @@ public class RouteMessage : MonoBehaviour
         }
         Button4.interactable = true;
         Log.Debug($"收到Chat发送来的消息 Tag = {response.Tag}");
+    }
+
+    private void PushMessage()
+    {
+        // 发送消息后，服务器会主动推送一个Chat2C_PushMessage消息给客户端。
+        // 接收的Handler参考GChat2C_PushMessageHandler.cs。
+        Button5.interactable = false;
+        _session.Send(new C2Chat_TestRequestPushMessage());
+        Button5.interactable = true;
     }
 }

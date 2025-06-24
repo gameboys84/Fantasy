@@ -1,14 +1,11 @@
 using System;
 using System.Collections.Generic;
-using System.Runtime.CompilerServices;
 using System.Runtime.Serialization;
 using Fantasy.Entitas.Interface;
 using Fantasy.Pool;
-using Fantasy.Serialize;
 using MongoDB.Bson.Serialization.Attributes;
 using Newtonsoft.Json;
 using ProtoBuf;
-
 // ReSharper disable ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
 // ReSharper disable MergeIntoPattern
 // ReSharper disable SuspiciousTypeConversion.Global
@@ -26,10 +23,11 @@ namespace Fantasy.Entitas
     /// 用来表示一个Entity
     /// </summary>
     public interface IEntity : IDisposable, IPool { }
+
     /// <summary>
     /// Entity的抽象类，任何Entity必须继承这个接口才可以使用
     /// </summary>
-    public abstract class Entity : IEntity
+    public abstract partial class Entity : IEntity
     {
         #region Members
 
@@ -55,7 +53,7 @@ namespace Fantasy.Entitas
         [BsonIgnore]
         [IgnoreDataMember]
         [ProtoIgnore]
-        public long RunTimeId { get; protected set; }
+        public long RuntimeId { get; protected set; }
         /// <summary>
         /// 当前实体是否已经被销毁
         /// </summary>
@@ -63,7 +61,7 @@ namespace Fantasy.Entitas
         [JsonIgnore]
         [IgnoreDataMember]
         [ProtoIgnore]
-        public bool IsDisposed => RunTimeId == 0;
+        public bool IsDisposed => RuntimeId == 0;
         /// <summary>
         /// 当前实体所归属的Scene
         /// </summary>
@@ -105,9 +103,76 @@ namespace Fantasy.Entitas
             return Parent as T;
         }
 
+        /// <summary>
+        /// 获取当前实体的RouteId。
+        /// </summary>
+        public long RouteId => RuntimeId;
+
         #endregion
 
         #region Create
+
+        /// <summary>
+        /// 创建一个实体
+        /// </summary>
+        /// <param name="scene">所属的Scene</param>
+        /// <param name="type">实体的Type</param>
+        /// <param name="isPool">是否从对象池创建，如果选择的是，销毁的时候同样会进入对象池</param>
+        /// <param name="isRunEvent">是否执行实体事件</param>
+        /// <returns></returns>
+        public static Entity Create(Scene scene, Type type, bool isPool, bool isRunEvent)
+        {
+            return Create(scene, type, scene.EntityIdFactory.Create, isPool, isRunEvent);
+        }
+
+        /// <summary>
+        /// 创建一个实体
+        /// </summary>
+        /// <param name="scene">所属的Scene</param>
+        /// <param name="type">实体的Type</param>
+        /// <param name="id">指定实体的Id</param>
+        /// <param name="isPool">是否从对象池创建，如果选择的是，销毁的时候同样会进入对象池</param>
+        /// <param name="isRunEvent">是否执行实体事件</param>
+        /// <returns></returns>
+        public static Entity Create(Scene scene, Type type, long id, bool isPool, bool isRunEvent)
+        {
+            if (!typeof(Entity).IsAssignableFrom(type))
+            {
+                throw new NotSupportedException($"{type.FullName} Type:{type.FullName} must inherit from Entity");
+            }
+            
+            Entity entity = null;
+            
+            if (isPool)
+            {
+                entity = (Entity)scene.EntityPool.Rent(type);
+            }
+            else
+            {
+                if (!scene.TypeInstance.TryGetValue(type, out var createInstance))
+                {
+                    createInstance = CreateInstance.CreateIPool(type);
+                    scene.TypeInstance[type] = createInstance;
+                }
+
+                entity = (Entity)createInstance();
+            }
+            
+            entity.Scene = scene;
+            entity.Type = type;
+            entity.SetIsPool(isPool);
+            entity.Id = id;
+            entity.RuntimeId = scene.RuntimeIdFactory.Create;
+            scene.AddEntity(entity);
+            
+            if (isRunEvent)
+            {
+                scene.EntityComponent.Awake(entity);
+                scene.EntityComponent.StartUpdate(entity);
+            }
+            
+            return entity;
+        }
         
         /// <summary>
         /// 创建一个实体
@@ -119,23 +184,9 @@ namespace Fantasy.Entitas
         /// <returns></returns>
         public static T Create<T>(Scene scene, bool isPool, bool isRunEvent) where T : Entity, new()
         {
-            var entity = isPool ? scene.EntityPool.Rent<T>() : new T();
-            entity.Scene = scene;
-            entity.Type = typeof(T);
-            entity.SetIsPool(isPool);
-            entity.Id = scene.EntityIdFactory.Create;
-            entity.RunTimeId = scene.RuntimeIdFactory.Create;
-            scene.AddEntity(entity);
-            
-            if (isRunEvent)
-            {
-                scene.EntityComponent.Awake(entity);
-                scene.EntityComponent.StartUpdate(entity);
-            }
-            
-            return entity;
+            return Create<T>(scene, scene.EntityIdFactory.Create, isPool, isRunEvent);
         }
-
+        
         /// <summary>
         /// 创建一个实体
         /// </summary>
@@ -152,7 +203,7 @@ namespace Fantasy.Entitas
             entity.Type = typeof(T);
             entity.SetIsPool(isPool);
             entity.Id = id;
-            entity.RunTimeId = scene.RuntimeIdFactory.Create;
+            entity.RuntimeId = scene.RuntimeIdFactory.Create;
             scene.AddEntity(entity);
             
             if (isRunEvent)
@@ -342,6 +393,67 @@ namespace Fantasy.Entitas
             component.Scene = Scene;
         }
 
+        /// <summary>
+        ///  添加一个组件到当前实体上
+        /// </summary>
+        /// <param name="type">组件的类型</param>
+        /// <param name="isPool">是否在对象池创建</param>
+        /// <returns></returns>
+        public Entity AddComponent(Type type, bool isPool = true)
+        {
+            var id = typeof(ISupportedMultiEntity).IsAssignableFrom(type) ? Scene.EntityIdFactory.Create : Id;
+            var entity = Entity.Create(Scene, type, id, isPool, false);
+            AddComponent(entity);
+            Scene.EntityComponent.Awake(entity);
+            Scene.EntityComponent.StartUpdate(entity);
+            return entity;
+        }
+
+        #endregion
+
+        #region HasComponent
+
+        /// <summary>
+        /// 当前实体上是否有指定类型的组件
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <returns></returns>
+        public bool HasComponent<T>() where T : Entity, new()
+        {
+            return HasComponent(typeof(T));
+        }
+
+        /// <summary>
+        /// 当前实体上是否有指定类型的组件
+        /// </summary>
+        /// <param name="type"></param>
+        /// <returns></returns>
+        public bool HasComponent(Type type)
+        {
+            if (_tree == null)
+            {
+                return false;
+            }
+            
+            return _tree.ContainsKey(Scene.EntityComponent.GetHashCode(type));
+        }
+
+        /// <summary>
+        /// 当前实体上是否有指定类型的组件
+        /// </summary>
+        /// <param name="id"></param>
+        /// <typeparam name="T"></typeparam>
+        /// <returns></returns>
+        public bool HasComponent<T>(long id) where T : Entity, ISupportedMultiEntity, new()
+        {
+            if (_multi == null)
+            {
+                return false;
+            }
+
+            return _multi.ContainsKey(id);
+        }
+
         #endregion
 
         #region GetComponent
@@ -408,7 +520,7 @@ namespace Fantasy.Entitas
         #endregion
 
         #region RemoveComponent
-
+        
         /// <summary>
         /// 当前实体下删除一个实体
         /// </summary>
@@ -665,7 +777,7 @@ namespace Fantasy.Entitas
         /// <param name="resetId">是否是重新生成实体的Id,如果是数据库加载过来的一般是不需要的</param>
         public void Deserialize(Scene scene, bool resetId = false)
         {
-            if (RunTimeId != 0)
+            if (RuntimeId != 0)
             {
                 return;
             }
@@ -673,11 +785,11 @@ namespace Fantasy.Entitas
             try
             {
                 Scene = scene;
-                Type = GetType();
-                RunTimeId = Scene.RuntimeIdFactory.Create;
+                Type ??= GetType();
+                RuntimeId = Scene.RuntimeIdFactory.Create;
                 if (resetId)
                 {
-                    Id = RunTimeId;
+                    Id = RuntimeId;
                 }
 #if FANTASY_NET
                 if (_treeDb != null && _treeDb.Count > 0)
@@ -686,7 +798,8 @@ namespace Fantasy.Entitas
                     foreach (var entity in _treeDb)
                     {
                         entity.Parent = this;
-                        var typeHashCode = Scene.EntityComponent.GetHashCode(Type);
+                        entity.Type = entity.GetType();
+                        var typeHashCode = Scene.EntityComponent.GetHashCode(entity.Type);
                         _tree.Add(typeHashCode, entity);
                         entity.Deserialize(scene, resetId);
                     }
@@ -703,12 +816,14 @@ namespace Fantasy.Entitas
                     }
                 }
 #endif
+                scene.AddEntity(this);
+                scene.EntityComponent.Deserialize(this);
             }
             catch (Exception e)
             {
-                if (RunTimeId != 0)
+                if (RuntimeId != 0)
                 {
-                    scene.RemoveEntity(RunTimeId);
+                    scene.RemoveEntity(RuntimeId);
                 }
 
                 Log.Error(e);
@@ -837,8 +952,8 @@ namespace Fantasy.Entitas
             }
             
             var scene = Scene;
-            var runTimeId = RunTimeId;
-            RunTimeId = 0;
+            var runTimeId = RuntimeId;
+            RuntimeId = 0;
             
             if (_tree != null)
             {
@@ -847,6 +962,7 @@ namespace Fantasy.Entitas
                     entity.Dispose();
                 }
 
+                _tree.Clear();
                 scene.EntitySortedDictionaryPool.Return(_tree);
                 _tree = null;
             }
@@ -858,6 +974,7 @@ namespace Fantasy.Entitas
                     entity.Dispose();
                 }
 
+                _multi.Clear();
                 scene.EntitySortedDictionaryPool.Return(_multi);
                 _multi = null;
             }
@@ -869,6 +986,7 @@ namespace Fantasy.Entitas
                     entity.Dispose();
                 }
 
+                _treeDb.Clear();
                 scene.EntityListPool.Return(_treeDb);
                 _treeDb = null;
             }
@@ -880,6 +998,7 @@ namespace Fantasy.Entitas
                     entity.Dispose();
                 }
 
+                _multiDb.Clear();
                 scene.EntityListPool.Return(_multiDb);
                 _multiDb = null;
             }

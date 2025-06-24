@@ -1,11 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Fantasy.Async;
 using Fantasy.Entitas;
 using Fantasy.Event;
 using Fantasy.IdFactory;
 using Fantasy.Network;
 using Fantasy.Network.Interface;
+using Fantasy.Pool;
 using Fantasy.Scheduler;
 using Fantasy.Timer;
 #if FANTASY_NET
@@ -14,7 +16,9 @@ using Fantasy.Platform.Net;
 using Fantasy.SingleCollection;
 using System.Runtime.CompilerServices;
 using Fantasy.Network.Route;
+using Fantasy.Network.Roaming;
 #endif
+// ReSharper disable ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
 #pragma warning disable CS8601 // Possible null reference assignment.
 #pragma warning disable CS8625 // Cannot convert null literal to non-nullable reference type.
 #pragma warning disable CS8603 // Possible null reference return.
@@ -24,53 +28,65 @@ using Fantasy.Network.Route;
 namespace Fantasy
 {
     /// <summary>
-    /// Scene的运行类型
+    /// 当Scene创建完成后发送的事件参数
     /// </summary>
-    public class SceneRuntimeType
+    public struct OnCreateScene
     {
         /// <summary>
-        /// Scene在主线程中运行.
+        /// 获取与事件关联的场景实体。
         /// </summary>
-        public const string MainThread = "MainThread";
+        public readonly Scene Scene;
         /// <summary>
-        /// Scene在一个独立的线程中运行.
+        /// 初始化一个新的 OnCreateScene 实例。
         /// </summary>
-        public const string MultiThread = "MultiThread";
-        /// <summary>
-        /// Scene在一个根据当前CPU核心数创建的线程池中运行.
-        /// </summary>
-        public const string ThreadPool = "ThreadPool";
+        /// <param name="scene"></param>
+        public OnCreateScene(Scene scene)
+        {
+            Scene = scene;
+        }
     }
+    
     /// <summary>
     /// 表示一个场景实体，用于创建与管理特定的游戏场景信息。
     /// </summary>
-    public class Scene : Entity
+    public partial class Scene : Entity
     {
         #region Members
+        /// <summary>
+        /// Scene的运行类型
+        /// </summary>
+        public SceneRuntimeType SceneRuntimeType { get; protected set; }
 #if FANTASY_NET
         /// <summary>
         /// Scene类型，对应SceneConfig的SceneType
         /// </summary>
-        public int SceneType { get; private set; }
+        public int SceneType { get; protected set; }
         /// <summary>
         /// 所属的世界
         /// </summary>
-        public World World { get; private set; }
+        public World World { get; protected set; }
         /// <summary>
         /// 所在的Process
         /// </summary>
-        public Process Process { get; private set; }
+        public Process Process { get; protected set; }
         /// <summary>
         /// SceneConfig的Id
         /// </summary>
-        public uint SceneConfigId { get; private set; }
+        public uint SceneConfigId { get; protected set; }
         internal ANetwork InnerNetwork { get; private set; }
         internal ANetwork OuterNetwork { get; private set; }
         internal SceneConfig SceneConfig => SceneConfigData.Instance.Get(SceneConfigId);
         private readonly Dictionary<uint, ProcessSessionInfo> _processSessionInfos = new Dictionary<uint, ProcessSessionInfo>();
 #endif
-        internal ThreadSynchronizationContext ThreadSynchronizationContext { get; private set; }
+        /// <summary>
+        /// 当前Scene的上下文
+        /// </summary>
+        public ThreadSynchronizationContext ThreadSynchronizationContext { get; internal set; }
+        /// <summary>
+        /// 当前Scene的下创建的Entity
+        /// </summary>
         private readonly Dictionary<long, Entity> _entities = new Dictionary<long, Entity>();
+        internal readonly Dictionary<Type, Func<IPool>> TypeInstance = new Dictionary<Type, Func<IPool>>();
         #endregion
 
         #region IdFactory
@@ -78,19 +94,19 @@ namespace Fantasy
         /// <summary>
         /// Entity实体Id的生成器
         /// </summary>
-        public EntityIdFactory EntityIdFactory { get; private set; }
+        public IEntityIdFactory EntityIdFactory { get; protected set; }
         /// <summary>
         /// Entity实体RuntimeId的生成器
         /// </summary>
-        public RuntimeIdFactory RuntimeIdFactory { get; private set; }
+        public IRuntimeIdFactory RuntimeIdFactory { get; protected set; }
 
         #endregion
         
         #region Pool
 
-        internal EntityPool EntityPool { get; private set; }
-        internal EntityListPool<Entity> EntityListPool { get; private set; }
-        internal EntitySortedDictionaryPool<long, Entity> EntitySortedDictionaryPool { get; private set; }
+        internal EntityPool EntityPool;
+        internal EntityListPool<Entity> EntityListPool;
+        internal EntitySortedDictionaryPool<long, Entity> EntitySortedDictionaryPool;
 
         #endregion
         
@@ -99,33 +115,44 @@ namespace Fantasy
         /// <summary>
         /// Scene下的任务调度器系统组件
         /// </summary>
-        public TimerComponent TimerComponent { get; private set; }
+        public TimerComponent TimerComponent { get; internal set; }
         /// <summary>
         /// Scene下的事件系统组件
         /// </summary>
-        public EventComponent EventComponent { get; private set; }
+        public EventComponent EventComponent { get; internal set; }
         /// <summary>
         /// Scene下的ESC系统组件
         /// </summary>
-        public EntityComponent EntityComponent { get; private set; }
+        public EntityComponent EntityComponent { get; internal set; }
         /// <summary>
         /// Scene下的网络消息对象池组件
         /// </summary>
-        public MessagePoolComponent MessagePoolComponent { get; private set; }
+        public MessagePoolComponent MessagePoolComponent { get; internal set; }
         /// <summary>
         /// Scene下的协程锁组件
         /// </summary>
-        public CoroutineLockComponent CoroutineLockComponent { get; private set; }
-        internal MessageDispatcherComponent MessageDispatcherComponent { get; private set; }
+        public CoroutineLockComponent CoroutineLockComponent { get; internal set; }
         /// <summary>
-        /// Scene下的内网消息发送组件
+        /// Scene下的网络消息派发组件
         /// </summary>
-        public NetworkMessagingComponent NetworkMessagingComponent { get; private set; }
+        internal MessageDispatcherComponent MessageDispatcherComponent { get; set; }
 #if FANTASY_NET
         /// <summary>
         /// Scene下的Entity分表组件
         /// </summary>
-        public SingleCollectionComponent SingleCollectionComponent { get; private set; }
+        public SingleCollectionComponent SingleCollectionComponent { get; internal set; }
+        /// <summary>
+        /// Scene下的内网消息发送组件
+        /// </summary>
+        public NetworkMessagingComponent NetworkMessagingComponent { get; internal set; }
+        /// <summary>
+        /// Scene下的漫游终端管理组件
+        /// </summary>
+        public TerminusComponent TerminusComponent { get; internal set; }
+        /// <summary>
+        /// Scene下的Session漫游组件
+        /// </summary>
+        public RoamingComponent RoamingComponent { get; internal set; }
 #endif
         #endregion
 
@@ -137,34 +164,19 @@ namespace Fantasy
             EntityListPool = new EntityListPool<Entity>();
             EntitySortedDictionaryPool = new EntitySortedDictionaryPool<long, Entity>();
             SceneUpdate = EntityComponent = await Create<EntityComponent>(this, false, false).Initialize();
-            MessagePoolComponent = AddComponent<MessagePoolComponent>(false);
-            EventComponent = await AddComponent<EventComponent>(false).Initialize();
-            TimerComponent = AddComponent<TimerComponent>(false).Initialize();
-            CoroutineLockComponent = AddComponent<CoroutineLockComponent>(false).Initialize();
-            MessageDispatcherComponent = await AddComponent<MessageDispatcherComponent>(false).Initialize();
-            NetworkMessagingComponent = AddComponent<NetworkMessagingComponent>(false);
+            MessagePoolComponent = Create<MessagePoolComponent>(this,false,true);
+            EventComponent = await Create<EventComponent>(this,false,true).Initialize();
+            TimerComponent = Create<TimerComponent>(this, false, true).Initialize();
+            CoroutineLockComponent = Create<CoroutineLockComponent>(this, false, true).Initialize();
+            MessageDispatcherComponent = await Create<MessageDispatcherComponent>(this, false, true).Initialize();
 #if FANTASY_NET
-            SingleCollectionComponent = await AddComponent<SingleCollectionComponent>(false).Initialize();
+            NetworkMessagingComponent = Create<NetworkMessagingComponent>(this, false, true);
+            SingleCollectionComponent = await Create<SingleCollectionComponent>(this, false, true).Initialize();
+            TerminusComponent = Create<TerminusComponent>(this, false, true);
+            RoamingComponent = Create<RoamingComponent>(this, false, true).Initialize();
 #endif
         }
 
-        private void Initialize(Scene scene) 
-        {
-            scene.EntityPool = scene.EntityPool;
-            scene.EntityListPool = scene.EntityListPool;
-            scene.EntitySortedDictionaryPool = scene.EntitySortedDictionaryPool;
-            SceneUpdate = scene.SceneUpdate;
-            TimerComponent = scene.TimerComponent;
-            EventComponent = scene.EventComponent;
-            EntityComponent = scene.EntityComponent;
-            MessagePoolComponent = scene.MessagePoolComponent;
-            CoroutineLockComponent = scene.CoroutineLockComponent;
-            MessageDispatcherComponent = scene.MessageDispatcherComponent;
-            NetworkMessagingComponent = scene.NetworkMessagingComponent;
-#if FANTASY_NET
-            SingleCollectionComponent = scene.SingleCollectionComponent;
-#endif
-        }
         /// <summary>
         /// Scene销毁方法，执行了该方法会把当前Scene下的所有实体都销毁掉。
         /// </summary>
@@ -174,30 +186,93 @@ namespace Fantasy
             {
                 return;
             }
-#if FANTASY_NET
-            foreach (var (_, innerSession) in _processSessionInfos)
-            {
-                innerSession.Dispose();
-            }
-            _processSessionInfos.Clear();
-#endif
-#if FANTASY_UNITY
-            Session = null;
-            _unityWorldId--;
-            _unitySceneId--;
-            UnityNetwork?.Dispose();
-#endif
-            EventComponent.Dispose();
-            MessagePoolComponent.Dispose();
-            EntityPool.Dispose();
-            EntityListPool.Dispose();
-            EntitySortedDictionaryPool.Dispose();
+            
             base.Dispose();
+            _entities.Remove(RuntimeId);
+
+            switch (SceneRuntimeType)
+            {
+                case SceneRuntimeType.Root:
+                {
+#if FANTASY_NET
+                    foreach (var (_, processSessionInfo) in _processSessionInfos.ToList())
+                    {
+                        processSessionInfo.Dispose();
+                    }
+
+                    _processSessionInfos.Clear();
+#endif
+                    _entities.Remove(EntityComponent.RuntimeId);
+
+                    foreach (var (runtimeId, entity) in _entities.ToList())
+                    {
+                        if (runtimeId != entity.RuntimeId)
+                        {
+                            continue;
+                        }
+                        entity.Dispose();
+                    }
+
+                    _entities.Clear();
+#if FANTASY_UNITY
+                    _unityWorldId--;
+                    _unitySceneId--;
+#endif
+                    TypeInstance.Clear();
+#if FANTASY_NET
+                    Process.RemoveScene(this, false);
+                    Process.RemoveSceneToProcess(this, false);
+#endif
+                    EntityComponent.Dispose();
+                    EntityPool.Dispose();
+                    EntityListPool.Dispose();
+                    EntitySortedDictionaryPool.Dispose();
+                    break;
+                }
+                case SceneRuntimeType.SubScene:
+                {
+                    break;
+                }
+                default:
+                {
+                    Log.Error($"SceneRuntimeType: {SceneRuntimeType} The unsupported SceneRuntimeType of the Scene executed Dispose.");
+                    break;
+                }
+            }
+
+            SceneUpdate = null;
+            EntityIdFactory = null;
+            RuntimeIdFactory = null;
+
+            EntityPool = null;
+            EntityListPool = null;
+            EntitySortedDictionaryPool = null;
+            EntityComponent = null;
+            TimerComponent = null;
+            EventComponent = null;
+            MessagePoolComponent = null;
+            CoroutineLockComponent = null;
+            MessageDispatcherComponent = null;
+#if FANTASY_NET
+            World = null;
+            Process = null;
+            SceneType = 0;
+            SceneConfigId = 0;
+            SingleCollectionComponent = null;
+            NetworkMessagingComponent = null;
+            TerminusComponent = null;
+            RoamingComponent = null;
+#elif FANTASY_UNITY
+            Session = null;
+            UnityNetwork = null;
+#endif
+            ThreadSynchronizationContext = null;
+            SceneRuntimeType = SceneRuntimeType.None;
         }
 
         #endregion
 
-        private ISceneUpdate SceneUpdate { get; set; }
+        internal ISceneUpdate SceneUpdate { get; set; }
 
         internal void Update()
         {
@@ -213,7 +288,7 @@ namespace Fantasy
 
         #region Create
 
-#if FANTASY_UNITY
+#if FANTASY_UNITY || FANTASY_CONSOLE
         private static uint _unitySceneId = 0;
         private static byte _unityWorldId = 0;
         public Session Session { get; private set; }
@@ -221,10 +296,10 @@ namespace Fantasy
         /// <summary>
         /// 创建一个Unity的Scene，注意:该方法只能在主线程下使用。
         /// </summary>
-        /// <param name="sceneRuntimeType">选择Scene的运行方式</param>
+        /// <param name="sceneRuntimeMode">选择Scene的运行方式</param>
         /// <returns></returns>
         /// <exception cref="Exception"></exception>
-        public static async FTask<Scene> Create(string sceneRuntimeType = SceneRuntimeType.MainThread)
+        public static async FTask<Scene> Create(string sceneRuntimeMode = SceneRuntimeMode.MainThread)
         {
             var world = ++_unityWorldId;
 
@@ -243,12 +318,18 @@ namespace Fantasy
             var scene = new Scene();
             scene.Scene = scene;
             scene.Parent = scene;
-            scene.EntityIdFactory = new EntityIdFactory(sceneId, world);
-            scene.RuntimeIdFactory = new RuntimeIdFactory(sceneId, world);
-            scene.Id = new EntityIdStruct(0, sceneId, world, 0);
-            scene.RunTimeId = new RuntimeIdStruct(0, sceneId, world, 0);
+            scene.Type = typeof(Scene);
+            scene.SceneRuntimeType = SceneRuntimeType.Root;
+            scene.EntityIdFactory =  IdFactoryHelper.EntityIdFactory(sceneId, world);
+            scene.RuntimeIdFactory = IdFactoryHelper.RuntimeIdFactory(0, sceneId, world);
+            scene.Id = IdFactoryHelper.EntityId(0, sceneId, world, 0);
+            scene.RuntimeId = IdFactoryHelper.RuntimeId(0, sceneId, world, 0);
             scene.AddEntity(scene);
-            await SetScheduler(scene, null, sceneRuntimeType);
+            await SetScheduler(scene, sceneRuntimeMode);
+            scene.ThreadSynchronizationContext.Post(() =>
+            {
+                scene.EventComponent.PublishAsync(new OnCreateScene(scene)).Coroutine();
+            });
             return scene;
         }
         public Session Connect(string remoteAddress, NetworkProtocolType networkProtocolType, Action onConnectComplete, Action onConnectFail, Action onConnectDisconnect, bool isHttps, int connectTimeout = 5000)
@@ -266,11 +347,13 @@ namespace Fantasy
             var scene = new Scene();
             scene.Scene = scene;
             scene.Parent = scene;
+            scene.Type = typeof(Scene);
             scene.Process = process;
-            scene.EntityIdFactory = new EntityIdFactory(sceneConfigId, worldId);
-            scene.RuntimeIdFactory = new RuntimeIdFactory(sceneConfigId, worldId);
-            scene.Id = new EntityIdStruct(0, sceneConfigId, worldId, 0);
-            scene.RunTimeId = new RuntimeIdStruct(0, sceneConfigId, worldId, 0);
+            scene.SceneRuntimeType = SceneRuntimeType.Root;
+            scene.EntityIdFactory = IdFactoryHelper.EntityIdFactory(sceneConfigId, worldId);
+            scene.RuntimeIdFactory = IdFactoryHelper.RuntimeIdFactory(0,sceneConfigId, worldId);
+            scene.Id = IdFactoryHelper.EntityId(0, sceneConfigId, worldId, 0);
+            scene.RuntimeId = IdFactoryHelper.RuntimeId(0, sceneConfigId, worldId, 0);
             scene.AddEntity(scene);
             return scene;
         }
@@ -286,7 +369,7 @@ namespace Fantasy
             var scene = Create(process, (byte)sceneConfig.WorldConfigId, sceneConfig.Id);
             scene.SceneType = sceneConfig.SceneType;
             scene.SceneConfigId = sceneConfig.Id;
-            await SetScheduler(scene, null, sceneConfig.SceneRuntimeType);
+            await SetScheduler(scene, sceneConfig.SceneRuntimeMode);
             
             if (sceneConfig.WorldConfigId != 0)
             {
@@ -305,8 +388,10 @@ namespace Fantasy
                 var networkProtocolType = Enum.Parse<NetworkProtocolType>(sceneConfig.NetworkProtocol);
                 scene.OuterNetwork = NetworkProtocolFactory.CreateServer(scene, networkProtocolType, NetworkTarget.Outer, machineConfig.OuterBindIP, sceneConfig.OuterPort);
             }
+            
             Process.AddScene(scene);
             process.AddSceneToProcess(scene);
+            
             scene.ThreadSynchronizationContext.Post(() =>
             {
                 if (sceneConfig.SceneTypeString == "Addressable")
@@ -317,6 +402,7 @@ namespace Fantasy
                 
                 scene.EventComponent.PublishAsync(new OnCreateScene(scene)).Coroutine();
             });
+            
             return scene;
         }
         /// <summary>
@@ -326,24 +412,23 @@ namespace Fantasy
         /// <param name="sceneType">SceneType，可以在SceneType里找到，例如:SceneType.Addressable</param>
         /// <param name="onSubSceneComplete">子Scene创建成功后执行的委托，可以传递null</param>
         /// <returns></returns>
-        public static async FTask<Scene> CreateSubScene(Scene parentScene, int sceneType, Action<Scene, Scene> onSubSceneComplete)
+        public static SubScene CreateSubScene(Scene parentScene, int sceneType, Action<SubScene, Scene> onSubSceneComplete = null)
         {
-            var scene = new Scene();
+            var scene = new SubScene();
             scene.Scene = scene;
             scene.Parent = scene;
+            scene.RootScene = parentScene;
+            scene.Type = typeof(SubScene);
             scene.SceneType = sceneType;
             scene.World = parentScene.World;
             scene.Process = parentScene.Process;
+            scene.SceneRuntimeType = SceneRuntimeType.SubScene;
             scene.EntityIdFactory = parentScene.EntityIdFactory;
             scene.RuntimeIdFactory = parentScene.RuntimeIdFactory;
             scene.Id = scene.EntityIdFactory.Create;
-            scene.RunTimeId = scene.RuntimeIdFactory.Create;
+            scene.RuntimeId = scene.RuntimeIdFactory.Create;
             scene.AddEntity(scene);
-            await SetScheduler(scene, parentScene, SceneRuntimeType.ThreadPool);
-            
-            Process.AddScene(scene);
-            parentScene.Process.AddSceneToProcess(scene);
-            
+            scene.Initialize(parentScene);
             scene.ThreadSynchronizationContext.Post(() => OnEvent().Coroutine());
             return scene;
             async FTask OnEvent()
@@ -353,9 +438,9 @@ namespace Fantasy
             }
         }
 #endif
-        private static async FTask SetScheduler(Scene scene, Scene schedulerScene, string sceneRuntimeType)
+        private static async FTask SetScheduler(Scene scene, string sceneRuntimeMode)
         {
-            switch (sceneRuntimeType)
+            switch (sceneRuntimeMode)
             {
                 case "MainThread":
                 {
@@ -385,12 +470,6 @@ namespace Fantasy
                     await scene.Initialize();
                     break;
                 }
-                case "SceneThread":
-                {
-                    scene.ThreadSynchronizationContext = schedulerScene.ThreadSynchronizationContext;
-                    scene.Initialize(schedulerScene);
-                    break;
-                }
             }
         }
         #endregion
@@ -401,9 +480,9 @@ namespace Fantasy
         /// 添加一个实体到当前Scene下
         /// </summary>
         /// <param name="entity">实体实例</param>
-        public void AddEntity(Entity entity)
+        public virtual void AddEntity(Entity entity)
         {
-            _entities.Add(entity.RunTimeId, entity);
+            _entities.Add(entity.RuntimeId, entity);
         }
 
         /// <summary>
@@ -411,7 +490,7 @@ namespace Fantasy
         /// </summary>
         /// <param name="runTimeId">实体的RunTimeId</param>
         /// <returns>返回的实体</returns>
-        public Entity GetEntity(long runTimeId)
+        public virtual Entity GetEntity(long runTimeId)
         {
             return _entities.TryGetValue(runTimeId, out var entity) ? entity : null;
         }
@@ -422,7 +501,7 @@ namespace Fantasy
         /// <param name="runTimeId">实体的RunTimeId</param>
         /// <param name="entity">实体实例</param>
         /// <returns>返回一个bool值来提示是否查找到这个实体</returns>
-        public bool TryGetEntity(long runTimeId, out Entity entity)
+        public virtual bool TryGetEntity(long runTimeId, out Entity entity)
         {
             return _entities.TryGetValue(runTimeId, out entity);
         }
@@ -433,7 +512,7 @@ namespace Fantasy
         /// <param name="runTimeId">实体的RunTimeId</param>
         /// <typeparam name="T">要查询实体的泛型类型</typeparam>
         /// <returns>返回的实体</returns>
-        public T GetEntity<T>(long runTimeId) where T : Entity
+        public virtual T GetEntity<T>(long runTimeId) where T : Entity
         {
             return _entities.TryGetValue(runTimeId, out var entity) ? (T)entity : null;
         }
@@ -445,7 +524,7 @@ namespace Fantasy
         /// <param name="entity">实体实例</param>
         /// <typeparam name="T">要查询实体的泛型类型</typeparam>
         /// <returns>返回一个bool值来提示是否查找到这个实体</returns>
-        public bool TryGetEntity<T>(long runTimeId, out T entity) where T : Entity
+        public virtual bool TryGetEntity<T>(long runTimeId, out T entity) where T : Entity
         {
             if (_entities.TryGetValue(runTimeId, out var getEntity))
             {
@@ -462,7 +541,7 @@ namespace Fantasy
         /// </summary>
         /// <param name="runTimeId">实体的RunTimeId</param>
         /// <returns>返回一个bool值来提示是否删除了这个实体</returns>
-        public bool RemoveEntity(long runTimeId)
+        public virtual bool RemoveEntity(long runTimeId)
         {
             return _entities.Remove(runTimeId);
         }
@@ -472,9 +551,9 @@ namespace Fantasy
         /// </summary>
         /// <param name="entity">实体实例</param>
         /// <returns>返回一个bool值来提示是否删除了这个实体</returns>
-        public bool RemoveEntity(Entity entity)
+        public virtual bool RemoveEntity(Entity entity)
         {
-            return _entities.Remove(entity.RunTimeId);
+            return _entities.Remove(entity.RuntimeId);
         }
 
         #endregion
@@ -488,9 +567,9 @@ namespace Fantasy
         /// <param name="runTimeId"></param>
         /// <returns></returns>
         /// <exception cref="Exception"></exception>
-        public Session GetSession(long runTimeId)
+        public virtual Session GetSession(long runTimeId)
         {
-            var sceneId = RuntimeIdFactory.GetSceneId(ref runTimeId);
+            var sceneId = IdFactoryHelper.RuntimeIdTool.GetSceneId(ref runTimeId);
 
             if (_processSessionInfos.TryGetValue(sceneId, out var processSessionInfo))
             {

@@ -19,6 +19,7 @@ message G2C_TestResponse // IResponse
 {
 	string Tag = 1;
 }
+
 message C2G_TestNotifyMessage // IMessage
 {
 	string Msg = 1;
@@ -26,6 +27,16 @@ message C2G_TestNotifyMessage // IMessage
 message G2C_TestNotifyMessage // IMessage
 {
 	string Msg = 1;
+}
+
+message C2G_TestRequestPushMessage // IMessage
+{
+
+}
+/// Gate服务器推送一个消息给客户端
+message G2C_PushMessage // IMessage
+{
+	string Tag = 1;
 }
 
 message C2G_CreateAddressableRequest // IRequest,G2C_CreateAddressableResponse
@@ -81,4 +92,112 @@ message Chat2C_TestMessageResponse // ICustomRouteResponse
 {
 	string Tag = 1;
 }
+/// 发送一个RPC消息给Map，让Map里的Entity转移到另外一个Map上
+message C2M_MoveToMapRequest // IAddressableRouteRequest,M2C_MoveToMapResponse
+{
 
+}
+message M2C_MoveToMapResponse // IAddressableRouteResponse
+{
+
+}
+/// 发送一个消息给Gate，让Gate发送一个Addressable消息给MAP
+message C2G_SendAddressableToMap // IMessage
+{
+	string Tag = 1;
+}
+/// 发送一个消息给Chat，让Chat服务器主动推送一个RouteMessage消息给客户端
+message C2Chat_TestRequestPushMessage // ICustomRouteMessage,ChatRoute
+{
+
+}
+/// Chat服务器主动推送一个消息给客户端
+message Chat2C_PushMessage // ICustomRouteMessage,ChatRoute
+{
+	string Tag = 1;
+}
+/// 客户端发送给Gate服务器通知map服务器创建一个SubScene
+message C2G_CreateSubSceneRequest // IRequest,G2C_CreateSubSceneResponse
+{
+
+}
+message G2C_CreateSubSceneResponse // IResponse
+{
+
+}
+/// 客户端通知Gate服务器给SubScene发送一个消息
+message C2G_SendToSubSceneMessage // IMessage
+{
+
+}
+/// 客户端通知Gate服务器创建一个SubScene的Address消息
+message C2G_CreateSubSceneAddressableRequest // IRequest,G2C_CreateSubSceneAddressableResponse
+{
+
+}
+message G2C_CreateSubSceneAddressableResponse // IResponse
+{
+
+}
+/// 客户端向SubScene发送一个测试消息
+message C2SubScene_TestMessage // IAddressableRouteMessage
+{
+	string Tag = 1;
+}
+/// 客户端向SubScene发送一个销毁测试消息
+message C2SubScene_TestDisposeMessage // IAddressableRouteMessage
+{
+	
+}
+/// 客户端向服务器发送连接消息（Roaming）
+message C2G_ConnectRoamingRequest // IRequest,G2C_ConnectRoamingResponse
+{
+
+}
+message G2C_ConnectRoamingResponse // IResponse
+{
+
+}
+/// 测试一个Chat漫游普通消息
+message C2Chat_TestRoamingMessage // IRoamingMessage,ChatRoamingType
+{
+	string Tag = 1;
+}
+/// 测试一个Map漫游普通消息
+message C2Map_TestRoamingMessage // IRoamingMessage,MapRoamingType
+{
+	string Tag = 1;
+}
+/// 测试一个Chat漫游RPC消息
+message C2Chat_TestRPCRoamingRequest // IRoamingRequest,Chat2C_TestRPCRoamingResponse,ChatRoamingType
+{
+	string Tag = 1;
+}
+message Chat2C_TestRPCRoamingResponse // IRoamingResponse
+{
+
+}
+/// 客户端发送一个漫游消息给Map通知Map主动推送一个消息给客户端
+message C2Map_PushMessageToClient // IRoamingMessage,MapRoamingType
+{
+	string Tag = 1;
+}
+/// 漫游端发送一个消息给客户端
+message Map2C_PushMessageToClient // IRoamingMessage,MapRoamingType
+{
+	string Tag = 1;
+}
+/// 测试传送漫游的触发协议
+message C2Map_TestTransferRequest // IRoamingRequest,Map2C_TestTransferResponse,MapRoamingType
+{
+
+}
+message Map2C_TestTransferResponse // IRoamingResponse
+{
+
+}
+/// 测试一个Chat发送到Map之间漫游协议
+message C2Chat_TestSendMapMessage // IRoamingMessage,ChatRoamingType
+{
+	string Tag = 1;
+}

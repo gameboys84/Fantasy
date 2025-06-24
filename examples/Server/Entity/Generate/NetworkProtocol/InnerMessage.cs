@@ -18,6 +18,24 @@ using Fantasy.Serialize;
 namespace Fantasy
 {	
 	[ProtoContract]
+	public partial class G2A_TestMessage : AMessage, IRouteMessage, IProto
+	{
+		public static G2A_TestMessage Create(Scene scene)
+		{
+			return scene.MessagePoolComponent.Rent<G2A_TestMessage>();
+		}
+		public override void Dispose()
+		{
+			Tag = default;
+#if FANTASY_NET || FANTASY_UNITY
+			GetScene().MessagePoolComponent.Return<G2A_TestMessage>(this);
+#endif
+		}
+		public uint OpCode() { return InnerOpcode.G2A_TestMessage; }
+		[ProtoMember(1)]
+		public string Tag { get; set; }
+	}
+	[ProtoContract]
 	public partial class G2A_TestRequest : AMessage, IRouteRequest, IProto
 	{
 		public static G2A_TestRequest Create(Scene scene)
@@ -133,5 +151,183 @@ namespace Fantasy
 		public long ChatRouteId { get; set; }
 		[ProtoMember(2)]
 		public uint ErrorCode { get; set; }
+	}
+	/// <summary>
+	///  Map给另外一个Map发送Unit数据
+	/// </summary>
+	public partial class M2M_SendUnitRequest : AMessage, IRouteRequest
+	{
+		public static M2M_SendUnitRequest Create(Scene scene)
+		{
+			return scene.MessagePoolComponent.Rent<M2M_SendUnitRequest>();
+		}
+		public override void Dispose()
+		{
+			Unit = default;
+#if FANTASY_NET || FANTASY_UNITY
+			GetScene().MessagePoolComponent.Return<M2M_SendUnitRequest>(this);
+#endif
+		}
+		[BsonIgnore]
+		public M2M_SendUnitResponse ResponseType { get; set; }
+		public uint OpCode() { return InnerOpcode.M2M_SendUnitRequest; }
+		public Unit Unit { get; set; }
+	}
+	public partial class M2M_SendUnitResponse : AMessage, IRouteResponse
+	{
+		public static M2M_SendUnitResponse Create(Scene scene)
+		{
+			return scene.MessagePoolComponent.Rent<M2M_SendUnitResponse>();
+		}
+		public override void Dispose()
+		{
+			ErrorCode = default;
+#if FANTASY_NET || FANTASY_UNITY
+			GetScene().MessagePoolComponent.Return<M2M_SendUnitResponse>(this);
+#endif
+		}
+		public uint OpCode() { return InnerOpcode.M2M_SendUnitResponse; }
+		public uint ErrorCode { get; set; }
+	}
+	/// <summary>
+	///  Gate发送Addressable消息给MAP
+	/// </summary>
+	[ProtoContract]
+	public partial class G2M_SendAddressableMessage : AMessage, IAddressableRouteMessage, IProto
+	{
+		public static G2M_SendAddressableMessage Create(Scene scene)
+		{
+			return scene.MessagePoolComponent.Rent<G2M_SendAddressableMessage>();
+		}
+		public override void Dispose()
+		{
+			Tag = default;
+#if FANTASY_NET || FANTASY_UNITY
+			GetScene().MessagePoolComponent.Return<G2M_SendAddressableMessage>(this);
+#endif
+		}
+		public uint OpCode() { return InnerOpcode.G2M_SendAddressableMessage; }
+		[ProtoMember(1)]
+		public string Tag { get; set; }
+	}
+	[ProtoContract]
+	public partial class G2M_CreateSubSceneRequest : AMessage, IRouteRequest, IProto
+	{
+		public static G2M_CreateSubSceneRequest Create(Scene scene)
+		{
+			return scene.MessagePoolComponent.Rent<G2M_CreateSubSceneRequest>();
+		}
+		public override void Dispose()
+		{
+#if FANTASY_NET || FANTASY_UNITY
+			GetScene().MessagePoolComponent.Return<G2M_CreateSubSceneRequest>(this);
+#endif
+		}
+		[ProtoIgnore]
+		public M2G_CreateSubSceneResponse ResponseType { get; set; }
+		public uint OpCode() { return InnerOpcode.G2M_CreateSubSceneRequest; }
+	}
+	[ProtoContract]
+	public partial class M2G_CreateSubSceneResponse : AMessage, IRouteResponse, IProto
+	{
+		public static M2G_CreateSubSceneResponse Create(Scene scene)
+		{
+			return scene.MessagePoolComponent.Rent<M2G_CreateSubSceneResponse>();
+		}
+		public override void Dispose()
+		{
+			ErrorCode = default;
+			SubSceneRouteId = default;
+#if FANTASY_NET || FANTASY_UNITY
+			GetScene().MessagePoolComponent.Return<M2G_CreateSubSceneResponse>(this);
+#endif
+		}
+		public uint OpCode() { return InnerOpcode.M2G_CreateSubSceneResponse; }
+		[ProtoMember(1)]
+		public long SubSceneRouteId { get; set; }
+		[ProtoMember(2)]
+		public uint ErrorCode { get; set; }
+	}
+	[ProtoContract]
+	public partial class G2SubScene_SentMessage : AMessage, IRouteMessage, IProto
+	{
+		public static G2SubScene_SentMessage Create(Scene scene)
+		{
+			return scene.MessagePoolComponent.Rent<G2SubScene_SentMessage>();
+		}
+		public override void Dispose()
+		{
+			Tag = default;
+#if FANTASY_NET || FANTASY_UNITY
+			GetScene().MessagePoolComponent.Return<G2SubScene_SentMessage>(this);
+#endif
+		}
+		public uint OpCode() { return InnerOpcode.G2SubScene_SentMessage; }
+		[ProtoMember(1)]
+		public string Tag { get; set; }
+	}
+	/// <summary>
+	///  Gate通知SubScene创建一个Addressable消息
+	/// </summary>
+	[ProtoContract]
+	public partial class G2SubScene_AddressableIdRequest : AMessage, IRouteRequest, IProto
+	{
+		public static G2SubScene_AddressableIdRequest Create(Scene scene)
+		{
+			return scene.MessagePoolComponent.Rent<G2SubScene_AddressableIdRequest>();
+		}
+		public override void Dispose()
+		{
+#if FANTASY_NET || FANTASY_UNITY
+			GetScene().MessagePoolComponent.Return<G2SubScene_AddressableIdRequest>(this);
+#endif
+		}
+		[ProtoIgnore]
+		public SubScene2G_AddressableIdResponse ResponseType { get; set; }
+		public uint OpCode() { return InnerOpcode.G2SubScene_AddressableIdRequest; }
+	}
+	[ProtoContract]
+	public partial class SubScene2G_AddressableIdResponse : AMessage, IRouteResponse, IProto
+	{
+		public static SubScene2G_AddressableIdResponse Create(Scene scene)
+		{
+			return scene.MessagePoolComponent.Rent<SubScene2G_AddressableIdResponse>();
+		}
+		public override void Dispose()
+		{
+			ErrorCode = default;
+			AddressableId = default;
+#if FANTASY_NET || FANTASY_UNITY
+			GetScene().MessagePoolComponent.Return<SubScene2G_AddressableIdResponse>(this);
+#endif
+		}
+		public uint OpCode() { return InnerOpcode.SubScene2G_AddressableIdResponse; }
+		[ProtoMember(1)]
+		public long AddressableId { get; set; }
+		[ProtoMember(2)]
+		public uint ErrorCode { get; set; }
+	}
+	/// <summary>
+	///  Chat发送一个漫游消息给Map
+	/// </summary>
+	[ProtoContract]
+	public partial class Chat2M_TestMessage : AMessage, IRoamingMessage, IProto
+	{
+		public static Chat2M_TestMessage Create(Scene scene)
+		{
+			return scene.MessagePoolComponent.Rent<Chat2M_TestMessage>();
+		}
+		public override void Dispose()
+		{
+			Tag = default;
+#if FANTASY_NET || FANTASY_UNITY
+			GetScene().MessagePoolComponent.Return<Chat2M_TestMessage>(this);
+#endif
+		}
+		public uint OpCode() { return InnerOpcode.Chat2M_TestMessage; }
+		[ProtoIgnore]
+		public int RouteType => Fantasy.RoamingType.MapRoamingType;
+		[ProtoMember(1)]
+		public string Tag { get; set; }
 	}
 }

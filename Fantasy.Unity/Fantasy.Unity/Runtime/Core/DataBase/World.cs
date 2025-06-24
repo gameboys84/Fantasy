@@ -7,7 +7,7 @@ namespace Fantasy.DataBase
     /// <summary>
     /// 表示一个游戏世界。
     /// </summary>
-    public sealed class World
+    public sealed class World : IDisposable
     {
         /// <summary>
         /// 获取游戏世界的唯一标识。
@@ -16,22 +16,18 @@ namespace Fantasy.DataBase
         /// <summary>
         /// 获取游戏世界的数据库接口。
         /// </summary>
-        public IDateBase DateBase { get; private init; }
+        public IDataBase DataBase { get; private init; }
         /// <summary>
         /// 获取游戏世界的配置信息。
         /// </summary>
         public WorldConfig Config => WorldConfigData.Instance.Get(Id);
-        /// <summary>
-        /// 用于存储已创建的游戏世界实例
-        /// </summary>
-        private static readonly Dictionary<uint, World> Worlds = new();
 
         /// <summary>
         /// 使用指定的配置信息创建一个游戏世界实例。
         /// </summary>
         /// <param name="scene"></param>
         /// <param name="worldConfigId"></param>
-        public World(Scene scene, byte worldConfigId)
+        private World(Scene scene, byte worldConfigId)
         {
             Id = worldConfigId;
             var worldConfig = Config;
@@ -41,12 +37,14 @@ namespace Fantasy.DataBase
             {
                 case "mongodb":
                 {
-                    DateBase = new MongoDataBase();
-                    DateBase.Initialize(scene, worldConfig.DbConnection, worldConfig.DbName);
+                    DataBase = new MongoDataBase();
+                    DataBase.Initialize(scene, worldConfig.DbConnection, worldConfig.DbName);
                     break;
                 }
                 default:
+                {
                     throw new Exception("No supported database");
+                }
             }
         }
 
@@ -56,26 +54,22 @@ namespace Fantasy.DataBase
         /// <param name="scene"></param>
         /// <param name="id">游戏世界的唯一标识。</param>
         /// <returns>游戏世界实例。</returns>
-        public static World Create(Scene scene, byte id)
+        internal static World Create(Scene scene, byte id)
         {
-            if (Worlds.TryGetValue(id, out var world))
-            {
-                return world;
-            }
-
             if (!WorldConfigData.Instance.TryGet(id, out var worldConfigData))
             {
                 return null;
             }
 
-            if (string.IsNullOrEmpty(worldConfigData.DbConnection))
-            {
-                return null;
-            }
+            return string.IsNullOrEmpty(worldConfigData.DbConnection) ? null : new World(scene, id);
+        }
 
-            world = new World(scene, id);
-            Worlds.Add(id, world);
-            return world;
+        /// <summary>
+        /// 释放游戏世界资源。
+        /// </summary>
+        public void Dispose()
+        {
+            DataBase.Dispose();
         }
     }
 }

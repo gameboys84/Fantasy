@@ -1,13 +1,15 @@
 using System;
+using Fantasy.Async;
 using Fantasy.Network;
 using Fantasy.PacketParser.Interface;
 #if FANTASY_NET
+using System.Text;
 using Fantasy.Network.Interface;
 using Fantasy.Network.Route;
 using Fantasy.PacketParser;
-using Fantasy.Async;
 using Fantasy.Helper;
 using Fantasy.InnerMessage;
+using Fantasy.Roaming;
 #endif
 
 #pragma warning disable CS1591 // Missing XML comment for publicly visible type or member
@@ -28,9 +30,8 @@ namespace Fantasy.Scheduler
         /// 在Unity环境下，处理外部消息的方法。
         /// </summary>
         /// <param name="session">网络会话。</param>
-        /// <param name="messageType">消息类型。</param>
         /// <param name="packInfo">消息封包信息。</param>
-        public override void Scheduler(Session session, APackInfo packInfo)
+        public override FTask Scheduler(Session session, APackInfo packInfo)
         {
             throw new NotSupportedException($"Received unsupported message protocolCode:{packInfo.ProtocolCode}");
         }
@@ -40,12 +41,7 @@ namespace Fantasy.Scheduler
     internal sealed class OuterMessageScheduler(Scene scene) : ANetworkMessageScheduler(scene)
     {
         private readonly PingResponse _pingResponse = new PingResponse();
-        public override void Scheduler(Session session, APackInfo packInfo)
-        {
-            HandlerAsync(session, packInfo).Coroutine();
-        }
-
-        private async FTask HandlerAsync(Session session, APackInfo packInfo)
+        public override async FTask Scheduler(Session session, APackInfo packInfo)
         {
             if (session.IsDisposed)
             {
@@ -113,7 +109,7 @@ namespace Fantasy.Scheduler
                 case OpCodeType.OuterAddressableMessage:
                 {
                     var packInfoPackInfoId = packInfo.PackInfoId;
-                    
+                   
                     try
                     {
                         var messageType = MessageDispatcherComponent.GetOpCodeType(packInfo.ProtocolCode);
@@ -123,13 +119,12 @@ namespace Fantasy.Scheduler
                             throw new Exception($"OuterMessageScheduler error 可能遭受到恶意发包或没有协议定义ProtocolCode ProtocolCode：{packInfo.ProtocolCode}");
                         }
 
-                        var addressableRouteComponent = session.GetComponent<AddressableRouteComponent>();
+                        var addressableRouteComponent = session.AddressableRouteComponent;
 
                         if (addressableRouteComponent == null)
                         {
                             throw new Exception("OuterMessageScheduler error session does not have an AddressableRouteComponent component");
                         }
-
                         
                         await addressableRouteComponent.Send(messageType, packInfo);
                     }
@@ -156,7 +151,7 @@ namespace Fantasy.Scheduler
                             throw new Exception($"OuterMessageScheduler error 可能遭受到恶意发包或没有协议定义ProtocolCode ProtocolCode：{packInfo.ProtocolCode}");
                         }
 
-                        var addressableRouteComponent = session.GetComponent<AddressableRouteComponent>();
+                        var addressableRouteComponent = session.AddressableRouteComponent;
 
                         if (addressableRouteComponent == null)
                         {
@@ -164,10 +159,10 @@ namespace Fantasy.Scheduler
                         }
                     
                         var rpcId = packInfo.RpcId;
-                        var runtimeId = session.RunTimeId;
+                        var runtimeId = session.RuntimeId;
                         var response = await addressableRouteComponent.Call(messageType, packInfo);
                         // session可能已经断开了，所以这里需要判断
-                        if (session.RunTimeId == runtimeId)
+                        if (session.RuntimeId == runtimeId)
                         {
                             session.Send(response, rpcId);
                         }
@@ -201,11 +196,11 @@ namespace Fantasy.Scheduler
                             throw new Exception($"OuterMessageScheduler error 可能遭受到恶意发包或没有协议定义ProtocolCode ProtocolCode：{packInfo.ProtocolCode}");
                         }
                     
-                        var routeComponent = session.GetComponent<RouteComponent>();
+                        var routeComponent = session.RouteComponent;
 
                         if (routeComponent == null)
                         {
-                            throw new Exception("OuterMessageScheduler CustomRouteType session does not have an routeComponent component");
+                            throw new Exception($"OuterMessageScheduler CustomRouteType session does not have an routeComponent component messageType:{messageType.FullName} ProtocolCode：{packInfo.ProtocolCode}");
                         }
 
                         if (!routeComponent.TryGetRouteId(routeType, out var routeId))
@@ -244,7 +239,7 @@ namespace Fantasy.Scheduler
                             throw new Exception($"OuterMessageScheduler error 可能遭受到恶意发包或没有协议定义ProtocolCode ProtocolCode：{packInfo.ProtocolCode}");
                         }
                     
-                        var routeComponent = session.GetComponent<RouteComponent>();
+                        var routeComponent = session.RouteComponent;
 
                         if (routeComponent == null)
                         {
@@ -257,10 +252,93 @@ namespace Fantasy.Scheduler
                         }
                     
                         var rpcId = packInfo.RpcId;
-                        var runtimeId = session.RunTimeId;
+                        var runtimeId = session.RuntimeId;
                         var response = await NetworkMessagingComponent.CallInnerRoute(routeId, messageType, packInfo);
                         // session可能已经断开了，所以这里需要判断
-                        if (session.RunTimeId == runtimeId)
+                        if (session.RuntimeId == runtimeId)
+                        {
+                            session.Send(response, rpcId);
+                        }
+                    }
+                    finally
+                    {
+                        if (packInfo.PackInfoId == packInfoPackInfoId)
+                        {
+                            packInfo.Dispose();
+                        }
+                    }
+
+                    return;
+                }
+                case OpCodeType.OuterRoamingMessage:
+                {
+                    var packInfoProtocolCode = packInfo.ProtocolCode;
+                    var packInfoPackInfoId = packInfo.PackInfoId;
+
+                    try
+                    {
+                        if (!MessageDispatcherComponent.GetCustomRouteType(packInfoProtocolCode, out var routeType))
+                        {
+                            throw new Exception($"OuterMessageScheduler error 可能遭受到恶意发包或没有协议定义ProtocolCode ProtocolCode：{packInfo.ProtocolCode}");
+                        }
+
+                        var messageType = MessageDispatcherComponent.GetOpCodeType(packInfo.ProtocolCode);
+
+                        if (messageType == null)
+                        {
+                            throw new Exception($"OuterMessageScheduler error 可能遭受到恶意发包或没有协议定义ProtocolCode ProtocolCode：{packInfo.ProtocolCode}");
+                        }
+                    
+                        var sessionRoamingComponent = session.SessionRoamingComponent;
+
+                        if (sessionRoamingComponent == null)
+                        {
+                            throw new Exception($"OuterMessageScheduler Roaming session does not have an sessionRoamingComponent component messageType:{messageType.FullName} ProtocolCode：{packInfo.ProtocolCode}");
+                        }
+
+                        await sessionRoamingComponent.Send(routeType, messageType, packInfo);
+                    }
+                    finally
+                    {
+                        if (packInfo.PackInfoId == packInfoPackInfoId)
+                        {
+                            packInfo.Dispose();
+                        }
+                    }
+                    
+                    return;
+                }
+                case OpCodeType.OuterRoamingRequest:
+                {
+                    var packInfoProtocolCode = packInfo.ProtocolCode;
+                    var packInfoPackInfoId = packInfo.PackInfoId;
+
+                    try
+                    {
+                        if (!MessageDispatcherComponent.GetCustomRouteType(packInfoProtocolCode, out var routeType))
+                        {
+                            throw new Exception($"OuterMessageScheduler error 可能遭受到恶意发包或没有协议定义ProtocolCode ProtocolCode：{packInfo.ProtocolCode}");
+                        }
+                        
+                        var messageType = MessageDispatcherComponent.GetOpCodeType(packInfo.ProtocolCode);
+
+                        if (messageType == null)
+                        {
+                            throw new Exception($"OuterMessageScheduler error 可能遭受到恶意发包或没有协议定义ProtocolCode ProtocolCode：{packInfo.ProtocolCode}");
+                        }
+                    
+                        var sessionRoamingComponent = session.SessionRoamingComponent;
+
+                        if (sessionRoamingComponent == null)
+                        {
+                            throw new Exception("OuterMessageScheduler Roaming session does not have an sessionRoamingComponent component");
+                        }
+                    
+                        var rpcId = packInfo.RpcId;
+                        var runtimeId = session.RuntimeId;
+                        var response = await sessionRoamingComponent.Call(routeType, messageType, packInfo);
+                        // session可能已经断开了，所以这里需要判断
+                        if (session.RuntimeId == runtimeId)
                         {
                             session.Send(response, rpcId);
                         }
@@ -277,8 +355,9 @@ namespace Fantasy.Scheduler
                 }
                 default:
                 {
+                    var ipAddress = session.IsDisposed ? "null" : session.RemoteEndPoint.ToString();
                     packInfo.Dispose();
-                    throw new NotSupportedException($"OuterMessageScheduler Received unsupported message protocolCode:{packInfo.ProtocolCode}");
+                    throw new NotSupportedException($"OuterMessageScheduler Received unsupported message protocolCode:{packInfo.ProtocolCode}\n1、请检查该协议所在的程序集是否在框架初始化的时候添加到框架中。\n2、如果看到这个消息表示你有可能用的老版本的导出工具，请更换为最新的导出工具。\n IP地址:{ipAddress}");
                 }
             }
         }

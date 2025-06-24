@@ -1,4 +1,4 @@
-#if !FANTASY_NET
+#if !FANTASY_NET && !FANTASY_CONSOLE
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -39,18 +39,28 @@ namespace Fantasy.Network.WebSocket
                 return;
             }
 
-            _isInnerDispose = true;
-            base.Dispose();
-            
-            if (_webSocket != null && _webSocket.ReadyState != WebSocketState.Closed)
+            try
             {
-                OnConnectDisconnect(this, null);
-                _webSocket.CloseAsync();
-            }
+                _isInnerDispose = true;
+                ClearConnectTimeout();
             
-            _packetParser.Dispose();
-            ClearConnectTimeout();
-            _messageCache.Clear();
+                if (_webSocket != null && _webSocket.ReadyState != WebSocketState.Closed)
+                {
+                    _onConnectDisconnect?.Invoke();
+                    _webSocket.CloseAsync();
+                }
+            
+                _packetParser.Dispose();
+                _messageCache.Clear();
+            }
+            catch (Exception e)
+            {
+                Log.Error(e);
+            }
+            finally
+            {
+                base.Dispose();
+            }
         }
 
         public override Session Connect(string remoteAddress, Action onConnectComplete, Action onConnectFail, Action onConnectDisconnect, bool isHttps, int connectTimeout = 5000)
@@ -75,20 +85,14 @@ namespace Fantasy.Network.WebSocket
             _webSocket = new UnityWebSocket.WebSocket(webSocketAddress);
             _webSocket.OnOpen += OnNetworkConnectComplete;
             _webSocket.OnMessage += OnReceiveComplete;
-            _webSocket.OnClose += OnConnectDisconnect;
+            _webSocket.OnClose += (sender, args) =>
+            {
+                _onConnectDisconnect?.Invoke();
+                Dispose();
+            };
             _webSocket.ConnectAsync();
             Session = Session.Create(this, null);
             return Session;
-        }
-        
-        private void OnConnectDisconnect(object sender, CloseEventArgs e)
-        {
-            if (IsDisposed)
-            {
-                return;
-            }
-            
-            _onConnectDisconnect?.Invoke();
         }
 
         private void OnNetworkConnectComplete(object sender, OpenEventArgs e)
@@ -158,7 +162,10 @@ namespace Fantasy.Network.WebSocket
         {
             _webSocket.SendAsync(memoryStream.GetBuffer(), 0, (int)memoryStream.Position);
 #if !UNITY_EDITOR && UNITY_WEBGL
-            ReturnMemoryStream(memoryStream);
+            if (memoryStream.MemoryStreamBufferSource == MemoryStreamBufferSource.Pack)
+            {
+                MemoryStreamBufferPool.ReturnMemoryStream(memoryStream);
+            }
 #endif
         }
 

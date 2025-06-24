@@ -8,6 +8,7 @@ using Fantasy.DataStructure.Dictionary;
 using Fantasy.Entitas;
 using Fantasy.InnerMessage;
 using Fantasy.Network;
+#pragma warning disable CS8604 // Possible null reference argument.
 
 #pragma warning disable CS8602 // Dereference of a possibly null reference.
 #pragma warning disable CS8600 // Converting null literal or possible null value to non-nullable type.
@@ -45,7 +46,6 @@ namespace Fantasy.Network.Interface
         private readonly OneToManyList<long, uint> _assemblyNetworkProtocols = new OneToManyList<long, uint>();
         private readonly OneToManyList<long, HandlerInfo<IMessageHandler>> _assemblyMessageHandlers = new OneToManyList<long, HandlerInfo<IMessageHandler>>();
 #if FANTASY_UNITY
-
         private readonly Dictionary<Type, IMessageDelegateHandler> _messageDelegateHandlers = new Dictionary<Type, IMessageDelegateHandler>();
 #endif
 #if FANTASY_NET
@@ -58,7 +58,7 @@ namespace Fantasy.Network.Interface
         
         #region Initialize
 
-        public async FTask<MessageDispatcherComponent> Initialize()
+        internal async FTask<MessageDispatcherComponent> Initialize()
         {
             _receiveRouteMessageLock = Scene.CoroutineLockComponent.Create(GetType().TypeHandle.Value.ToInt64());
             await AssemblySystem.Register(this);
@@ -68,7 +68,7 @@ namespace Fantasy.Network.Interface
         public async FTask Load(long assemblyIdentity)
         {
             var tcs = FTask.Create(false);
-            Scene.ThreadSynchronizationContext.Post(() =>
+            Scene?.ThreadSynchronizationContext.Post(() =>
             {
                 LoadInner(assemblyIdentity);
                 tcs.SetResult();
@@ -85,16 +85,16 @@ namespace Fantasy.Network.Interface
                 var opCode = obj.OpCode();
                 
                 _networkProtocols.Add(opCode, type);
-
+                
                 var responseType = type.GetProperty("ResponseType");
-
+                
                 // 如果类型具有ResponseType属性，将其添加到_responseTypes字典中
                 if (responseType != null)
                 {
                     _responseTypes.Add(type, responseType.PropertyType);
                     _assemblyResponseTypes.Add(assemblyIdentity, type);
                 }
-
+                
                 _assemblyNetworkProtocols.Add(assemblyIdentity, opCode);
             }
             
@@ -154,7 +154,7 @@ namespace Fantasy.Network.Interface
         public async FTask ReLoad(long assemblyIdentity)
         {
             var tcs = FTask.Create(false);
-            Scene.ThreadSynchronizationContext.Post(() =>
+            Scene?.ThreadSynchronizationContext.Post(() =>
             {
                 OnUnLoadInner(assemblyIdentity);
                 LoadInner(assemblyIdentity);
@@ -166,7 +166,7 @@ namespace Fantasy.Network.Interface
         public async FTask OnUnLoad(long assemblyIdentity)
         {
             var tcs = FTask.Create(false);
-            Scene.ThreadSynchronizationContext.Post(() =>
+            Scene?.ThreadSynchronizationContext.Post(() =>
             {
                 OnUnLoadInner(assemblyIdentity);
                 tcs.SetResult();
@@ -273,7 +273,6 @@ namespace Fantasy.Network.Interface
             _messageDelegateHandlers.Remove(type);
         }
 #endif
-
         #endregion
         
         /// <summary>
@@ -327,8 +326,8 @@ namespace Fantasy.Network.Interface
                 return;
             }
             
-            var runtimeId = entity.RunTimeId;
-            var sessionRuntimeId = session.RunTimeId;
+            var runtimeId = entity.RuntimeId;
+            var sessionRuntimeId = session.RuntimeId;
 
             if (entity is Scene)
             {
@@ -340,12 +339,12 @@ namespace Fantasy.Network.Interface
             // 使用协程锁来确保多线程安全
             using (await _receiveRouteMessageLock.Wait(runtimeId))
             {
-                if (sessionRuntimeId != session.RunTimeId)
+                if (sessionRuntimeId != session.RuntimeId)
                 {
                     return;
                 }
                 
-                if (runtimeId != entity.RunTimeId)
+                if (runtimeId != entity.RuntimeId)
                 {
                     if (message is IRouteRequest request)
                     {
@@ -354,12 +353,12 @@ namespace Fantasy.Network.Interface
                 
                     return;
                 }
-                
+
                 await routeMessageHandler.Handle(session, entity, rpcId, message);
             }
         }
 
-        internal bool GetCustomRouteType(long protocolCode,out int routeType)
+        internal bool GetCustomRouteType(long protocolCode, out int routeType)
         {
             return _customRouteMap.TryGetValue(protocolCode, out routeType);
         }

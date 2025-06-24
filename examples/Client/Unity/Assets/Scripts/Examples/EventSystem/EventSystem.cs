@@ -10,6 +10,7 @@ using UnityEngine.UI;
 public struct TestEvent
 {
     public int Age;
+    public Scene Scene;
 }
 
 public class TestEventEntity : Entity
@@ -82,14 +83,23 @@ public class EventSystem : MonoBehaviour
             EntityEvent().Coroutine();
         });
     }
+    
+    private void OnDestroy()
+    {
+        // 当Unity关闭或当前脚本销毁的时候，销毁这个Scene。
+        // 这样网络和Fantasy的相关功能都会销毁掉了。
+        // 这里只是展示一下如何销毁这个Scene的地方。
+        // 但这里销毁的时机明显是不对的，应该放到一个全局的地方。
+        _scene?.Dispose();
+    }
 
     private async FTask StartAsync()
     {
         // 初始化框架
-        Fantasy.Platform.Unity.Entry.Initialize(GetType().Assembly);
+        await Fantasy.Platform.Unity.Entry.Initialize(GetType().Assembly);
         // 创建一个Scene，这个Scene代表一个客户端的场景，客户端的所有逻辑都可以写这里
         // 如果有自己的框架，也可以就单纯拿这个Scene做网络通讯也没问题。
-        _scene = await Scene.Create(SceneRuntimeType.MainThread);
+        _scene = await Scene.Create(SceneRuntimeMode.MainThread);
         Button1.interactable = false;
         Button2.interactable = true;
         Button3.interactable = true;
@@ -101,12 +111,14 @@ public class EventSystem : MonoBehaviour
         // 发送一个同步的事件
         _scene.EventComponent.Publish(new TestEvent()
         {
-            Age = 1
+            Age = 1,
+            Scene = _scene
         });
         // 发送一个异步的事件
         await _scene.EventComponent.PublishAsync(new TestEvent()
         {
-            Age = 1
+            Age = 1,
+            Scene = _scene
         });
     }
     

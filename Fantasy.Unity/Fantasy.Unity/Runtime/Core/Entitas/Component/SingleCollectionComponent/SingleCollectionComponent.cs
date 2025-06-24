@@ -43,7 +43,7 @@ namespace Fantasy.SingleCollection
         public async FTask Load(long assemblyIdentity)
         {
             var tcs = FTask.Create(false);
-            Scene.ThreadSynchronizationContext.Post(() =>
+            Scene?.ThreadSynchronizationContext.Post(() =>
             {
                 LoadInner(assemblyIdentity);
                 tcs.SetResult();
@@ -54,7 +54,7 @@ namespace Fantasy.SingleCollection
         public async FTask ReLoad(long assemblyIdentity)
         {
             var tcs = FTask.Create(false);
-            Scene.ThreadSynchronizationContext.Post(() =>
+            Scene?.ThreadSynchronizationContext.Post(() =>
             {
                 OnUnLoadInner(assemblyIdentity);
                 LoadInner(assemblyIdentity);
@@ -66,7 +66,7 @@ namespace Fantasy.SingleCollection
         public async FTask OnUnLoad(long assemblyIdentity)
         {
             var tcs = FTask.Create(false);
-            Scene.ThreadSynchronizationContext.Post(() =>
+            Scene?.ThreadSynchronizationContext.Post(() =>
             {
                 OnUnLoadInner(assemblyIdentity);
                 tcs.SetResult();
@@ -125,14 +125,13 @@ namespace Fantasy.SingleCollection
                 return;
             }
 
-            var worldDateBase = Scene.World.DateBase;
+            var worldDateBase = Scene.World.DataBase;
 
             using (await _coroutineLock.Wait(entity.Id))
             {
                 foreach (var collectionName in collections)
                 {
-                    var singleCollection = await worldDateBase.QueryNotLock<Entity>(entity.Id, collectionName);
-                    singleCollection.Deserialize(Scene);
+                    var singleCollection = await worldDateBase.QueryNotLock<Entity>(entity.Id, true, collectionName);
                     entity.AddComponent(singleCollection);
                 }
             }
@@ -158,7 +157,7 @@ namespace Fantasy.SingleCollection
             }
 
             collections.Add(entity);
-            await entity.Scene.World.DateBase.Save(entity.Id, collections);
+            await entity.Scene.World.DataBase.Save(entity.Id, collections);
         }
 
         #endregion

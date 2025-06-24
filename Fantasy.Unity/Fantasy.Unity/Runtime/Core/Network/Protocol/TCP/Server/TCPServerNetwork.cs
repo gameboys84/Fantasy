@@ -35,8 +35,7 @@ namespace Fantasy.Network.TCP
             _socket.Bind(address);
             _socket.Listen(int.MaxValue);
             _socket.SetSocketBufferToOsLimit();
-            Log.Info(
-                $"SceneConfigId = {Scene.SceneConfigId} networkTarget = {networkTarget.ToString()} TCPServer Listen {address}");
+            Log.Info($"SceneConfigId = {Scene.SceneConfigId} networkTarget = {networkTarget.ToString()} TCPServer Listen {address}");
             _acceptAsync.Completed += OnCompleted;
             AcceptAsync();
         }
@@ -48,19 +47,29 @@ namespace Fantasy.Network.TCP
                 return;
             }
 
-            foreach (var networkChannel in _connectionChannel.Values.ToArray())
+            try
             {
-                networkChannel.Dispose();
-            }
+                foreach (var networkChannel in _connectionChannel.Values.ToArray())
+                {
+                    networkChannel.Dispose();
+                }
 
-            _connectionChannel.Clear();
-            _random = null;
-            _socket.Dispose();
-            _socket = null;
-            _acceptAsync.Dispose();
-            _acceptAsync = null;
-            GC.SuppressFinalize(this);
-            base.Dispose();
+                _connectionChannel.Clear();
+                _random = null;
+                _socket.Dispose();
+                _socket = null;
+                _acceptAsync.Dispose();
+                _acceptAsync = null;
+                GC.SuppressFinalize(this);
+            }
+            catch (Exception e)
+            {
+                Log.Error(e);
+            }
+            finally
+            {
+                base.Dispose();
+            }
         }
 
         private void AcceptAsync()
@@ -71,7 +80,7 @@ namespace Fantasy.Network.TCP
             {
                 return;
             }
-
+            
             OnAcceptComplete(_acceptAsync);
         }
 
@@ -131,8 +140,10 @@ namespace Fantasy.Network.TCP
             {
                 case SocketAsyncOperation.Accept:
                 {
-                    Scene.ThreadSynchronizationContext.Post(() => { OnAcceptComplete(asyncEventArgs); });
-
+                    Scene.ThreadSynchronizationContext.Post(() =>
+                    {
+                        OnAcceptComplete(asyncEventArgs);
+                    });
                     break;
                 }
                 default:

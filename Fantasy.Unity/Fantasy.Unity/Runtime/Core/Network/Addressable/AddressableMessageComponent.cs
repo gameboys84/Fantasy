@@ -47,9 +47,9 @@ namespace Fantasy.Network.Route
             }
 
 #if FANTASY_DEVELOP
-            Log.Debug($"AddressableMessageComponent Register addressableId:{AddressableId} RouteId:{Parent.RuntimeId}");
+            Log.Debug($"AddressableMessageComponent Register addressableId:{AddressableId} RouteId:{Parent.RouteId}");
 #endif
-            return AddressableHelper.AddAddressable(Scene, AddressableId, Parent.RunTimeId, isLock);
+            return AddressableHelper.AddAddressable(Scene, AddressableId, Parent.RouteId, isLock);
         }
 
         /// <summary>
@@ -70,9 +70,21 @@ namespace Fantasy.Network.Route
         public FTask UnLock(string source)
         {
 #if FANTASY_DEVELOP
-            Log.Debug($"AddressableMessageComponent UnLock {Parent.Id} {Parent.RuntimeId}");
+            Log.Debug($"AddressableMessageComponent UnLock {Parent.Id} {Parent.RouteId}");
 #endif
-            return AddressableHelper.UnLockAddressable(Scene, Parent.Id, Parent.RunTimeId, source);
+            return AddressableHelper.UnLockAddressable(Scene, Parent.Id, Parent.RouteId, source);
+        }
+
+        /// <summary>
+        /// 锁定可寻址消息并且释放掉AddressableMessageComponent组件。
+        /// 该方法不会自动取Addressable中心删除自己的信息。
+        /// 用于传送或转移到其他服务器时使用
+        /// </summary>
+        public async FTask LockAndRelease()
+        {
+            await Lock();
+            AddressableId = 0;
+            Dispose();
         }
     }
 }

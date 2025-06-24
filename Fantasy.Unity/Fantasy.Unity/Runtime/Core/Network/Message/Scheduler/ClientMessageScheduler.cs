@@ -1,4 +1,5 @@
 using System;
+using Fantasy.Async;
 using Fantasy.Network;
 using Fantasy.Network.Interface;
 using Fantasy.PacketParser.Interface;
@@ -7,16 +8,17 @@ using Fantasy.PacketParser.Interface;
 
 namespace Fantasy.Scheduler
 {
+#if FANTASY_UNITY || FANTASY_CONSOLE
     /// <summary>
     /// 提供了一个用于客户端网络消息调度和处理的抽象基类。
     /// </summary>
-#if FANTASY_UNITY
     public sealed class ClientMessageScheduler : ANetworkMessageScheduler
     {
         public ClientMessageScheduler(Scene scene) : base(scene) { }
 
-        public override void Scheduler(Session session, APackInfo packInfo)
+        public override async FTask Scheduler(Session session, APackInfo packInfo)
         {
+            await FTask.CompletedTask;
             switch (packInfo.OpCodeIdStruct.Protocol)
             {
                 case OpCodeType.OuterMessage:
@@ -25,6 +27,8 @@ namespace Fantasy.Scheduler
                 case OpCodeType.OuterAddressableRequest:
                 case OpCodeType.OuterCustomRouteMessage:
                 case OpCodeType.OuterCustomRouteRequest:
+                case OpCodeType.OuterRoamingMessage:
+                case OpCodeType.OuterRoamingRequest:
                 {
                     using (packInfo)
                     {
@@ -45,6 +49,7 @@ namespace Fantasy.Scheduler
                 case OpCodeType.OuterPingResponse:
                 case OpCodeType.OuterAddressableResponse:
                 case OpCodeType.OuterCustomRouteResponse:
+                case OpCodeType.OuterRoamingResponse:
                 {
                     using (packInfo)
                     {
@@ -82,7 +87,7 @@ namespace Fantasy.Scheduler
 #if FANTASY_NET
     internal sealed class ClientMessageScheduler(Scene scene) : ANetworkMessageScheduler(scene)
     {
-        public override void Scheduler(Session session, APackInfo packInfo)
+        public override FTask Scheduler(Session session, APackInfo packInfo)
         {
             throw new NotSupportedException($"ClientMessageScheduler Received unsupported message protocolCode:{packInfo.ProtocolCode}");
         }

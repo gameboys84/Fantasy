@@ -1,4 +1,5 @@
 using System;
+using Fantasy.Async;
 
 namespace Fantasy.Entitas.Interface
 {

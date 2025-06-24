@@ -2,8 +2,9 @@ using System;
 using System.Collections.Generic;
 using Fantasy.Assembly;
 using Fantasy.Helper;
+#if !FANTASY_EXPORTER
 using Fantasy.Network;
-using ProtoBuf;
+#endif
 #pragma warning disable CS8604 // Possible null reference argument.
 #pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
 #pragma warning disable CS8625 // Cannot convert null literal to non-nullable reference type.
@@ -49,7 +50,7 @@ namespace Fantasy.Serialize
             try
             {
                 var sort = new SortedList<long, ISerialize>();
-            
+
                 foreach (var serializerType in AssemblySystem.ForEach(typeof(ISerialize)))
                 {
                     var serializer = (ISerialize)Activator.CreateInstance(serializerType);
@@ -57,19 +58,13 @@ namespace Fantasy.Serialize
                     sort.Add(computeHash64, serializer);
                 }
 
-#if FANTASY_NET
                 var index = 1;
-#endif
-#if FANTASY_UNITY
-                var index = 0;
-#endif
-                
                 _serializers = new ISerialize[sort.Count];
-            
+
                 foreach (var (_, serialize) in sort)
                 {
                     var serializerIndex = 0;
-                    
+
                     switch (serialize)
                     {
                         case ProtoBufPackHelper:
@@ -77,29 +72,28 @@ namespace Fantasy.Serialize
                             serializerIndex = FantasySerializerType.ProtoBuf;
                             break;
                         }
-#if FANTASY_NET
                         case BsonPackHelper:
                         {
                             serializerIndex = FantasySerializerType.Bson;
                             break;
-                        }    
-#endif
+                        }
                         default:
                         {
                             serializerIndex = ++index;
                             break;
                         }
                     }
-                
+
                     _serializers[serializerIndex] = serialize;
                 }
-            
+
                 _isInitialized = true;
+                Log.Info($"初始化序列化器成功，数量为：{_serializers.Length}");
             }
-            catch
+            catch (Exception e)
             {
+                Log.Error(e);
                 Dispose();
-                throw;
             }
         }
 #else

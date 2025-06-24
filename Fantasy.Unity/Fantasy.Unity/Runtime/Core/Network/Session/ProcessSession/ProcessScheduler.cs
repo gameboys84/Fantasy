@@ -1,10 +1,8 @@
 #if FANTASY_NET
 // ReSharper disable ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
-using System.Runtime.CompilerServices;
 using Fantasy.IdFactory;
 using Fantasy.Network;
 using Fantasy.Network.Interface;
-using Fantasy.PacketParser;
 using Fantasy.PacketParser.Interface;
 using Fantasy.Platform.Net;
 
@@ -19,8 +17,10 @@ internal static class ProcessScheduler
             case OpCodeType.InnerResponse:
             case OpCodeType.InnerRouteResponse:
             case OpCodeType.InnerAddressableResponse:
+            case OpCodeType.InnerRoamingResponse:
             case OpCodeType.OuterAddressableResponse:
             case OpCodeType.OuterCustomRouteResponse:
+            case OpCodeType.OuterRoamingResponse:
             {
                 using (packInfo)
                 {
@@ -39,7 +39,7 @@ internal static class ProcessScheduler
             {
                 using (packInfo)
                 {
-                    var sceneId = RuntimeIdFactory.GetSceneId(ref routeId);
+                    var sceneId = IdFactoryHelper.RuntimeIdTool.GetSceneId(ref routeId);
                 
                     if (!Process.TryGetScene(sceneId, out var scene))
                     {
@@ -68,7 +68,7 @@ internal static class ProcessScheduler
             {
                 using (packInfo)
                 {
-                    var sceneId = RuntimeIdFactory.GetSceneId(ref routeId);
+                    var sceneId = IdFactoryHelper.RuntimeIdTool.GetSceneId(ref routeId);
                 
                     if (!Process.TryGetScene(sceneId, out var scene))
                     {
@@ -98,10 +98,12 @@ internal static class ProcessScheduler
             case OpCodeType.OuterCustomRouteMessage:
             case OpCodeType.OuterAddressableRequest:
             case OpCodeType.OuterCustomRouteRequest:
+            case OpCodeType.OuterRoamingMessage:
+            case OpCodeType.OuterRoamingRequest:
             {
                 using (packInfo)
                 {
-                    var sceneId = RuntimeIdFactory.GetSceneId(ref routeId);
+                    var sceneId = IdFactoryHelper.RuntimeIdTool.GetSceneId(ref routeId);
 
                     if (!Process.TryGetScene(sceneId, out var scene))
                     {
@@ -116,7 +118,8 @@ internal static class ProcessScheduler
 
                         if (entity == null || entity.IsDisposed)
                         {
-                            throw new NotSupportedException($"not found entity routeId = {routeId}");
+                            scene.MessageDispatcherComponent.FailRouteResponse(session, messageType, InnerErrorCode.ErrNotFoundRoute, rpcId);
+                            return;
                         }
                         
                         scene.MessageDispatcherComponent.RouteMessageHandler(session, messageType, entity, message, rpcId).Coroutine();
@@ -142,26 +145,34 @@ internal static class ProcessScheduler
             case OpCodeType.InnerResponse:
             case OpCodeType.InnerRouteResponse:
             case OpCodeType.InnerAddressableResponse:
+            case OpCodeType.InnerRoamingResponse:
             case OpCodeType.OuterAddressableResponse:
             case OpCodeType.OuterCustomRouteResponse:
+            case OpCodeType.OuterRoamingResponse:
             {
                 var sessionScene = session.Scene;
                 sessionScene.ThreadSynchronizationContext.Post(() =>
                 {
+                    var iResponse = (IResponse)session.Deserialize(messageType, message, ref opCodeIdStruct);
                     // 因为有可能是其他Scene线程下发送过来的、所以必须放到当前Scene进程下运行。
-                    sessionScene.NetworkMessagingComponent.ResponseHandler(rpcId, (IResponse)message);
+                    sessionScene.NetworkMessagingComponent.ResponseHandler(rpcId, iResponse);
                 });
+                
                 return;
             }
+            case OpCodeType.InnerRoamingMessage:
+            case OpCodeType.InnerAddressableMessage:
             case OpCodeType.InnerRouteMessage:
             {
-                var sceneId = RuntimeIdFactory.GetSceneId(ref routeId);
+                var sceneId = IdFactoryHelper.RuntimeIdTool.GetSceneId(ref routeId);
                 
                 if (!Process.TryGetScene(sceneId, out var scene))
                 {
                     throw new Exception($"not found scene routeId:{routeId}");
                 }
         
+                var messageObject = session.Deserialize(messageType, message, ref opCodeIdStruct);
+                
                 scene.ThreadSynchronizationContext.Post(() =>
                 {
                     var entity = scene.GetEntity(routeId);
@@ -171,20 +182,24 @@ internal static class ProcessScheduler
                     {
                         return;
                     }
-
-                    sceneMessageDispatcherComponent.RouteMessageHandler(session, messageType, entity, message, rpcId).Coroutine();
+                    
+                    sceneMessageDispatcherComponent.RouteMessageHandler(session, messageType, entity, messageObject, rpcId).Coroutine();
                 });
                 
                 return;
             }
+            case OpCodeType.InnerAddressableRequest:
+            case OpCodeType.InnerRoamingRequest:
             case OpCodeType.InnerRouteRequest:
             {
-                var sceneId = RuntimeIdFactory.GetSceneId(ref routeId);
+                var sceneId = IdFactoryHelper.RuntimeIdTool.GetSceneId(ref routeId);
                 
                 if (!Process.TryGetScene(sceneId, out var scene))
                 {
                     throw new Exception($"not found scene routeId:{routeId}");
                 }
+                
+                var messageObject = session.Deserialize(messageType, message, ref opCodeIdStruct);
         
                 scene.ThreadSynchronizationContext.Post(() =>
                 {
@@ -194,25 +209,27 @@ internal static class ProcessScheduler
                     if (entity == null || entity.IsDisposed)
                     {
                         sceneMessageDispatcherComponent.FailRouteResponse(session, message.GetType(), InnerErrorCode.ErrNotFoundRoute, rpcId);
-
                         return;
                     }
-
-                    sceneMessageDispatcherComponent.RouteMessageHandler(session, messageType, entity, message, rpcId).Coroutine();
+                    
+                    sceneMessageDispatcherComponent.RouteMessageHandler(session, messageType, entity, messageObject, rpcId).Coroutine();
                 });
                 
                 return;
             }
             case OpCodeType.OuterAddressableMessage:
             case OpCodeType.OuterCustomRouteMessage:
+            case OpCodeType.OuterRoamingMessage:
             {
-                var sceneId = RuntimeIdFactory.GetSceneId(ref routeId);
+                var sceneId = IdFactoryHelper.RuntimeIdTool.GetSceneId(ref routeId);
                 
                 if (!Process.TryGetScene(sceneId, out var scene))
                 {
                     Log.Error($"not found scene routeId:{routeId}");
                     return;
                 }
+                
+                var messageObject = session.Deserialize(messageType, message, ref opCodeIdStruct);
                 
                 scene.ThreadSynchronizationContext.Post(() =>
                 {
@@ -229,12 +246,12 @@ internal static class ProcessScheduler
                         case Session gateSession:
                         {
                             // 这里如果是Session只可能是Gate的Session、如果是的话、肯定是转发Address消息
-                            gateSession.Send((IMessage)message, rpcId);
+                            gateSession.Send((IMessage)messageObject, rpcId);
                             return;
                         }
                         default:
                         {
-                            scene.MessageDispatcherComponent.RouteMessageHandler(session, messageType, entity, message, rpcId).Coroutine();
+                            scene.MessageDispatcherComponent.RouteMessageHandler(session, messageType, entity, messageObject, rpcId).Coroutine();
                             return;
                         }
                     }
@@ -248,34 +265,5 @@ internal static class ProcessScheduler
             }
         }
     }
-
-    // [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    // private static void InnerRouteMessageHandler(Session session, Type messageType, long routeId, uint rpcId, uint protocolCode, uint errorProtocolCode, object message)
-    // {
-    //     var sceneId = RuntimeIdFactory.GetSceneId(ref routeId);
-    //             
-    //     if (!Process.TryGetScene(sceneId, out var scene))
-    //     {
-    //         throw new Exception($"not found scene routeId:{routeId}");
-    //     }
-    //     
-    //     scene.ThreadSynchronizationContext.Post(() =>
-    //     {
-    //         var entity = scene.GetEntity(routeId);
-    //         var sceneMessageDispatcherComponent = scene.MessageDispatcherComponent;
-    //         
-    //         if (entity == null || entity.IsDisposed)
-    //         {
-    //             if (protocolCode > errorProtocolCode)
-    //             {
-    //                 sceneMessageDispatcherComponent.FailResponse(session, (IRouteRequest)message, InnerErrorCode.ErrNotFoundRoute, rpcId);
-    //             }
-    //
-    //             return;
-    //         }
-    //
-    //         sceneMessageDispatcherComponent.RouteMessageHandler(session, messageType, entity, message, rpcId).Coroutine();
-    //     });
-    // }
 }
 #endif

@@ -1,15 +1,21 @@
 #if !FANTASY_WEBGL
 using System;
 using System.Buffers;
+using System.Collections.Generic;
 using System.IO;
 using System.IO.Pipelines;
+using System.Net;
 using System.Net.Sockets;
+using System.Runtime.InteropServices;
 using System.Threading;
 using Fantasy.Async;
 using Fantasy.Helper;
 using Fantasy.Network.Interface;
 using Fantasy.PacketParser;
 using Fantasy.Serialize;
+// ReSharper disable ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
+#pragma warning disable CS8602 // Dereference of a possibly null reference.
+#pragma warning disable CS8625 // Cannot convert null literal to non-nullable reference type.
 #pragma warning disable CS1591 // Missing XML comment for publicly visible type or member
 
 #pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
@@ -21,11 +27,15 @@ namespace Fantasy.Network.TCP
 {
     public sealed class TCPClientNetwork : AClientNetwork
     {
-        private Socket _socket;
+        private bool _isSending;
         private bool _isInnerDispose;
         private long _connectTimeoutId;
-        private readonly Pipe _pipe = new Pipe();
+        private Socket _socket;
+        private IPEndPoint _remoteEndPoint;
+        private SocketAsyncEventArgs _sendArgs;
         private ReadOnlyMemoryPacketParser _packetParser;
+        private readonly Pipe _pipe = new Pipe();
+        private readonly Queue<MemoryStreamBuffer> _sendBuffers = new Queue<MemoryStreamBuffer>();
         private readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
         
         private Action _onConnectFail;
@@ -46,31 +56,45 @@ namespace Fantasy.Network.TCP
                 return;
             }
 
-            base.Dispose();
-            _isInnerDispose = true;
-            ClearConnectTimeout();
-            
-            if (!_cancellationTokenSource.IsCancellationRequested)
+            try
             {
-                try
+                _isSending = false;
+                _isInnerDispose = true;
+                ClearConnectTimeout();
+
+                if (!_cancellationTokenSource.IsCancellationRequested)
                 {
-                    _cancellationTokenSource.Cancel();
+                    try
+                    {
+                        _cancellationTokenSource.Cancel();
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        // 通常情况下，此处的异常可以忽略
+                    }
                 }
-                catch (OperationCanceledException)
+
+                _onConnectDisconnect?.Invoke();
+
+                if (_socket.Connected)
                 {
-                    // 通常情况下，此处的异常可以忽略
+                    _socket.Close();
+                    _socket = null;
                 }
+
+                _sendBuffers.Clear();
+                _packetParser?.Dispose();
+                ChannelId = 0;
+                _sendArgs = null;
             }
-            
-            _onConnectDisconnect?.Invoke();
-            
-            if (_socket.Connected)
+            catch (Exception e)
             {
-                _socket.Close();
+                Log.Error(e);
             }
-            
-            _packetParser?.Dispose();
-            ChannelId = 0;
+            finally
+            {
+                base.Dispose();
+            }
         }
 
         /// <summary>
@@ -93,6 +117,7 @@ namespace Fantasy.Network.TCP
             }
             
             IsInit = true;
+            _isSending = false;
             _onConnectFail = onConnectFail;
             _onConnectComplete = onConnectComplete;
             _onConnectDisconnect = onConnectDisconnect;
@@ -103,20 +128,24 @@ namespace Fantasy.Network.TCP
                 Dispose();
             });
             _packetParser = PacketParserFactory.CreateClientReadOnlyMemoryPacket(this);
-            var remoteEndPoint = NetworkHelper.GetIPEndPoint(remoteAddress);
+            _remoteEndPoint = NetworkHelper.GetIPEndPoint(remoteAddress);
             _socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             _socket.NoDelay = true;
             _socket.SetSocketBufferToOsLimit();
+            _sendArgs = new SocketAsyncEventArgs();
+            _sendArgs.Completed += OnSendCompleted;
             var outArgs = new SocketAsyncEventArgs
             {
-                RemoteEndPoint = remoteEndPoint
+                RemoteEndPoint = _remoteEndPoint
             };
             outArgs.Completed += OnConnectSocketCompleted;
+           
             if (!_socket.ConnectAsync(outArgs))
             {
                 OnReceiveSocketComplete();
             }
-            Session = Session.Create(this, remoteEndPoint);
+            
+            Session = Session.Create(this, _remoteEndPoint);
             return Session;
         }
 
@@ -131,7 +160,7 @@ namespace Fantasy.Network.TCP
             {
                 if (asyncEventArgs.SocketError == SocketError.Success)
                 {
-                    Scene.ThreadSynchronizationContext.Post(() => OnReceiveSocketComplete());
+                    Scene.ThreadSynchronizationContext.Post(OnReceiveSocketComplete);
                 }
                 else
                 {
@@ -151,7 +180,7 @@ namespace Fantasy.Network.TCP
             ReadPipeDataAsync().Coroutine();
             ReceiveSocketAsync().Coroutine();
         }
-        
+
         #region ReceiveSocket
 
         private async FTask ReceiveSocketAsync()
@@ -161,8 +190,16 @@ namespace Fantasy.Network.TCP
                 try
                 {
                     var memory = _pipe.Writer.GetMemory(8192);
+#if UNITY_2021
+                     // Unity2021.3.14f有个恶心的问题，使用ReceiveAsync会导致memory不能正确写入
+                     // 所有只能使用ReceiveFromAsync来接收消息，但ReceiveFromAsync只有一个接受ArraySegment的接口。
+                     MemoryMarshal.TryGetArray(memory, out ArraySegment<byte> arraySegment);
+                     var result = await _socket.ReceiveFromAsync(arraySegment, SocketFlags.None, _remoteEndPoint);
+                     _pipe.Writer.Advance(result.ReceivedBytes);
+#else
                     var count = await _socket.ReceiveAsync(memory, SocketFlags.None, _cancellationTokenSource.Token);
                     _pipe.Writer.Advance(count);
+#endif
                     await _pipe.Writer.FlushAsync();
                 }
                 catch (SocketException)
@@ -198,7 +235,7 @@ namespace Fantasy.Network.TCP
             while (!_cancellationTokenSource.IsCancellationRequested)
             {
                 ReadResult result = default;
-            
+                
                 try
                 {
                     result = await pipeReader.ReadAsync(_cancellationTokenSource.Token);
@@ -281,33 +318,78 @@ namespace Fantasy.Network.TCP
 
         public override void Send(uint rpcId, long routeId, MemoryStreamBuffer memoryStream, IMessage message)
         {
-            Send(_packetParser.Pack(ref rpcId, ref routeId, memoryStream, message)).Coroutine();
+            _sendBuffers.Enqueue(_packetParser.Pack(ref rpcId, ref routeId, memoryStream, message));
+
+            if (!_isSending)
+            {
+                Send();
+            }
         }
 
-        private async FTask Send(MemoryStreamBuffer memoryStream)
+        private void Send()
         {
-            try
+            if (_isSending || IsDisposed)
             {
-                await _socket.SendAsync(new ArraySegment<byte>(memoryStream.GetBuffer(), 0, (int)memoryStream.Position), SocketFlags.None);
+                return;
+            }
+            
+            _isSending = true;
+            
+            while (_sendBuffers.Count > 0)
+            {
+                var memoryStreamBuffer = _sendBuffers.Dequeue();
+                _sendArgs.UserToken = memoryStreamBuffer;
+                _sendArgs.SetBuffer(new ArraySegment<byte>(memoryStreamBuffer.GetBuffer(), 0, (int)memoryStreamBuffer.Position));
 
+                try
+                {
+                    if (_socket.SendAsync(_sendArgs))
+                    {
+                        break;
+                    }
+
+                    ReturnMemoryStream(memoryStreamBuffer);
+                }
+                catch
+                {
+                    _isSending = false;
+                    return;
+                }
             }
-            catch (SocketException)
+            
+            _isSending = false;
+        }
+
+        private void ReturnMemoryStream(MemoryStreamBuffer memoryStream)
+        {
+            if (memoryStream.MemoryStreamBufferSource == MemoryStreamBufferSource.Pack)
             {
-                // 一般发生在地方Socket断开时出现，所以也额可以忽略。
-                Dispose();
+                MemoryStreamBufferPool.ReturnMemoryStream(memoryStream);
             }
-            catch (OperationCanceledException)
+        }
+
+        private void OnSendCompleted(object sender, SocketAsyncEventArgs asyncEventArgs)
+        {
+            if (asyncEventArgs.SocketError != SocketError.Success || asyncEventArgs.BytesTransferred == 0)
             {
-                // 取消操作，可以忽略这个异常。这个属于正常逻辑
+                _isSending = false;
+                return;
             }
-            catch (Exception e)
+
+            var memoryStreamBuffer = (MemoryStreamBuffer)asyncEventArgs.UserToken;
+            Scene.ThreadSynchronizationContext.Post(() =>
             {
-                Log.Error(e);
-            }
-            finally
-            {
-                ReturnMemoryStream(memoryStream);
-            }
+                ReturnMemoryStream(memoryStreamBuffer);
+                
+                if (_sendBuffers.Count > 0)
+                {
+                    Send();
+                }
+                else
+                {
+                    _isSending = false;
+                }
+            });
         }
 
         #endregion
@@ -324,7 +406,7 @@ namespace Fantasy.Network.TCP
                 return;
             }
 
-            Scene.TimerComponent.Net.Remove(ref _connectTimeoutId);
+            Scene?.TimerComponent?.Net?.Remove(ref _connectTimeoutId);
         }
     }
 }
