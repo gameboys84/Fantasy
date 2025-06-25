@@ -32,7 +32,7 @@ public class NetworkManager : MonoBehaviour
         Entry.Initialize(GetType().Assembly);
         _inited = true;
         
-        _scene = await Scene.Create(SceneRuntimeType.MainThread);
+        _scene = await Scene.Create(SceneRuntimeMode.MainThread);
     }
 
     // 127.0.0.1:20000, 5000

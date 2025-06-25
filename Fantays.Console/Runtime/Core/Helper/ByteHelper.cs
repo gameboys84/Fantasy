@@ -21,7 +21,7 @@ namespace Fantasy.Helper
         public static long ReadInt64(FileStream stream)
         {
             var buffer = new byte[8];
-#if FANTASY_NET
+#if FANTASY_NET || FANTASY_CONSOLE
             stream.ReadExactly(buffer, 0, 8);
 #else
             stream.Read(buffer, 0, 8);
@@ -35,7 +35,7 @@ namespace Fantasy.Helper
         public static int ReadInt32(FileStream stream)
         {
             var buffer = new byte[4];
-#if FANTASY_NET
+#if FANTASY_NET || FANTASY_CONSOLE
             stream.ReadExactly(buffer, 0, 4);
 #else
             stream.Read(buffer, 0, 4);
