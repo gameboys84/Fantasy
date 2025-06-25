@@ -17,6 +17,8 @@ public class NetworkManager : MonoBehaviour
     
     private bool _addressRegisted = false;
     public bool AddressRegisted { get => _addressRegisted; set => _addressRegisted = value; }
+    
+    public bool ShouldReconnect = true;
 
     private void Awake()
     {
@@ -29,7 +31,7 @@ public class NetworkManager : MonoBehaviour
         if (_inited)
             return;
         
-        Entry.Initialize(GetType().Assembly);
+        await Entry.Initialize(GetType().Assembly);
         _inited = true;
         
         _scene = await Scene.Create(SceneRuntimeMode.MainThread);
@@ -50,13 +52,13 @@ public class NetworkManager : MonoBehaviour
 
     private void OnConnectDisconnect()
     {
-        Utils.Log("连接断开 Disconnect");
+        Utils.Log("连接断开 Disconnect", Color.red);
         OnDisconnected();
     }
 
     private void OnConnectFail()
     {
-        Utils.Log("连接失败 Fail");
+        Utils.Log("连接失败 Fail", Color.red);
         OnDisconnected();
     }
 
@@ -67,11 +69,18 @@ public class NetworkManager : MonoBehaviour
         AddressRegisted = false;
         _session.Dispose();
         _session = null;
+
+        if (ShouldReconnect)
+        {
+            Utils.Log("尝试重新连接...", Color.yellow);
+
+            NetworkManager.Instance.Connect("127.0.0.1", 20000);
+        }
     }
 
     private void OnConnectComplete()
     {
-        Utils.Log("<color=yellow>连接成功 Complete</color>");
+        Utils.Log("连接成功", Color.green);
         // 每interval 2秒向服务器发送一次心跳，用于向服务器保活
         // 本地每 timeOutInterval 3秒检测 上次服务器回应是否超时， 超时时间为 timeOut 2秒
         _session.AddComponent<SessionHeartbeatComponent>().Start(2000);

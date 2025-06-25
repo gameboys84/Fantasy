@@ -28,9 +28,16 @@ namespace GameLogic
         }
 
         
-        public static void Log(string message)
+        public static void Log(string message, Color color = default)
         {
-            Debug.Log(message);
+            if (color == default)
+            {
+                Debug.Log(message);
+            }
+            else
+            {
+                Debug.Log("<color=#" + ColorUtility.ToHtmlStringRGB(color) + ">" + message + "</color>");
+            }
         }
     }
 }

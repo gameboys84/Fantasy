@@ -68,5 +68,21 @@ public static class Entry
     private static void OnConnectDisconnect()
     {
         Log.Debug("连接断开");
+
+        if (_session != null && !_session.IsDisposed)
+        {
+            Log.Debug("session dispose");
+            _session.Dispose();
+        }
+
+        Log.Warning("尝试重新连接...");
+
+        _session = _scene.Connect(
+            "127.0.0.1:20000",
+            NetworkProtocolType.KCP,
+            OnConnectComplete,
+            OnConnectFail,
+            OnConnectDisconnect,
+            false, 5000);
     }
 }

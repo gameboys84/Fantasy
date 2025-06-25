@@ -7,4 +7,8 @@ await Fantasy.Platform.Console.Entry.Initialize(typeof(Fantasy.Console.Entity.En
 Fantasy.Platform.Console.Entry.StartUpdate();
 Log.Debug($"{Thread.CurrentThread.ManagedThreadId} SynchronizationContext.Current:{SynchronizationContext.Current}");
 Entry.Show().Coroutine();
-Console.ReadKey();
+
+while (true)
+{
+    Console.ReadKey();
+}
