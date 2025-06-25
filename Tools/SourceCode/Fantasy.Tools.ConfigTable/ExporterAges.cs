@@ -18,4 +18,7 @@ public class ExporterAges
     /// </summary>
     [Option('e',"ExportType", Required = false, Default = ExportType.None, HelpText = "Export Type:\n/// Incremental export of all data in Excel format.\nAllExcelIncrement = 1\n/// Export all data to Excel format.\nAllExcel = 2")]
     public ExportType ExportType { get; set; }
+
+    [Option('f',"FileName", Required = false, Default = "ExporterSettings.json", HelpText = "Exporter config file name.")]
+    public string FileName { get; set; }
 }

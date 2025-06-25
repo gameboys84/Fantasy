@@ -17,15 +17,17 @@ public class ExporterSettingsHelper
     public static string? ServerCustomExportDirectory { get; private set; }
     public static string? ClientCustomExportDirectory { get; private set; }
     
-    public static void Initialize()
+    public static void Initialize(string settingsName = "ExporterSettings.json")
     {
-        const string settingsName = "ExporterSettings.json";
+        //const string settingsName = "ExporterSettings.json";
         var currentDirectory = Directory.GetCurrentDirectory();
 
         if (!File.Exists(Path.Combine(currentDirectory, settingsName)))
         {
             throw new FileNotFoundException($"not found {settingsName} in OutputDirectory");
         }
+
+        Console.WriteLine($"Exporter configuration file : {settingsName}");
 
         var root = new ConfigurationBuilder().SetBasePath(Directory.GetCurrentDirectory()).AddJsonFile(settingsName).Build();
         

@@ -10,7 +10,7 @@ try
         .WithNotParsed(error => throw new Exception("Command line format error!"))
         .WithParsed(ages => ExporterAges.Instance = ages);
     // 初始化配置
-    ExporterSettingsHelper.Initialize();
+    ExporterSettingsHelper.Initialize(ExporterAges.Instance.FileName);
     // 加载配置
     Console.OutputEncoding = Encoding.UTF8;
     // 判断启动参数，如果没有选择目标平台就让用户选择
