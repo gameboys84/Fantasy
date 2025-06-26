@@ -5,13 +5,15 @@ namespace Fantasy.Console.Entity;
 
 public static class Entry
 {
+    private static readonly string IP = "172.20.213.191:20000";
+
     private static Scene _scene;
     private static Session _session;
     public static async FTask Show()
     {
         _scene = await Fantasy.Scene.Create(SceneRuntimeMode.MainThread);
         _session = _scene.Connect(
-            "127.0.0.1:20000",
+            IP,
             NetworkProtocolType.KCP,
             OnConnectComplete,
             OnConnectFail,
@@ -21,7 +23,7 @@ public static class Entry
     
     private static void OnConnectComplete()
     {
-        Log.Debug("连接成功");
+        Log.Debug("连接成功:" + IP);
         // Session.AddComponent<SessionHeartbeatComponent>();
         // 添加心跳组件给Session。
         // Start(2000)就是2000毫秒。
@@ -62,12 +64,12 @@ public static class Entry
 
     private static void OnConnectFail()
     {
-        Log.Debug("连接失败");
+        Log.Debug("连接失败:" + IP);
     }
 
     private static void OnConnectDisconnect()
     {
-        Log.Debug("连接断开");
+        Log.Debug("连接断开:" + IP);
 
         if (_session != null && !_session.IsDisposed)
         {
@@ -75,10 +77,10 @@ public static class Entry
             _session.Dispose();
         }
 
-        Log.Warning("尝试重新连接...");
+        Log.Warning("尝试重新连接... " + IP);
 
         _session = _scene.Connect(
-            "127.0.0.1:20000",
+            IP,
             NetworkProtocolType.KCP,
             OnConnectComplete,
             OnConnectFail,

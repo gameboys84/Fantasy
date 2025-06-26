@@ -53,7 +53,7 @@ public static class Entry
         // 精度处理（只针对Windows下有作用、其他系统没有这个问题、一般也不会用Windows来做服务器的）
         WinPeriod.Initialize();
 
-        //FantasyMemory.Initialize();
+        // FantasyMemory.Initialize();
     }
 
     /// <summary>

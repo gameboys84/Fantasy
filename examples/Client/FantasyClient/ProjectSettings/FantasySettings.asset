@@ -16,3 +16,6 @@ MonoBehaviour:
   hotUpdatePath: 
   hotUpdateAssemblyDefinitions: []
   linkAssemblyDefinitions: []
+  includeAssembly:
+  - Assembly-CSharp
+  - Fantasy.Unity

@@ -93,6 +93,7 @@ namespace Fantasy.Network
             }
 
             entityReference.Dispose();
+            entityReference = null;
         }
 
         /// <summary>

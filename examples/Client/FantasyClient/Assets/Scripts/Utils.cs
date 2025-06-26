@@ -30,6 +30,11 @@ namespace GameLogic
         
         public static void Log(string message, Color color = default)
         {
+            if (message.Length >= 1000)
+            {
+                message = message.Substring(0, 1000) + " ...";
+            }
+            
             if (color == default)
             {
                 Debug.Log(message);
